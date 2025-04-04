@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "968248617019",
+    "project_id": "libot-vsu-851bd",
+    "storage_bucket": "libot-vsu-851bd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:968248617019:android:606524b57264efc7efd41e",
+        "android_client_info": {
+          "package_name": "com.example.libot_vsu1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBE2wWxxPNqEYj7zUlRkDlqw476f5xQG4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
