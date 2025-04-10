@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:libot_vsu1/screens/login_screen.dart';
-import 'package:libot_vsu1/screens/rider_dashboard_screen.dart';
-import 'package:libot_vsu1/screens/client_dashboard_screen.dart';
+import 'package:libot_vsu1/screens/Rider_Dashboard/rider_dashboard_screen.dart';
+import 'package:libot_vsu1/screens/Client_Dashboard/client_dashboard_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -318,6 +318,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         'contact': contact,
                                         'email': email,
                                         'role': _selectedRole,
+                                        'status': 'online',
+                                        'lastSeen':
+                                            FieldValue.serverTimestamp(),
                                         'uid': userCredential.user!.uid,
                                       });
 

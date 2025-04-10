@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:libot_vsu1/screens/sign_up_screen.dart';
-import 'package:libot_vsu1/screens/rider_dashboard_screen.dart';
-import 'package:libot_vsu1/screens/client_dashboard_screen.dart';
+import 'package:libot_vsu1/screens/Rider_Dashboard/rider_dashboard_screen.dart';
+import 'package:libot_vsu1/screens/Client_Dashboard/client_dashboard_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -139,23 +140,44 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             // Login button
                             ElevatedButton(
-                              onPressed: () async { 
+                              onPressed: () async {
                                 if (_formKey.currentState!.validate()) {
                                   final email = _emailController.text.trim();
                                   final password =
                                       _passwordController.text.trim();
 
                                   try {
-                                    // Firebase Sign-In
-                                    await FirebaseAuth.instance
+                                    // 🔐 Sign in with Firebase Auth
+                                    final userCredential = await FirebaseAuth
+                                        .instance
                                         .signInWithEmailAndPassword(
                                           email: email,
                                           password: password,
                                         );
+                                    final uid = userCredential.user!.uid;
 
-                                    if (email.contains('rider')) {
+                                    // 🔄 Update Firestore status to 'online'
+                                    await FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(uid)
+                                        .update({
+                                          'status': 'online',
+                                          'lastSeen':
+                                              FieldValue.serverTimestamp(),
+                                        });
+
+                                    // 🔍 Fetch user role from Firestore
+                                    final userDoc =
+                                        await FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(uid)
+                                            .get();
+                                    final role = userDoc.data()?['role'];
+
+                                    // ✅ Navigate based on role
+                                    if (!mounted) return;
+                                    if (role == 'Rider') {
                                       Navigator.pushReplacement(
-                                        // ignore: use_build_context_synchronously
                                         context,
                                         MaterialPageRoute(
                                           builder:
@@ -165,7 +187,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       );
                                     } else {
                                       Navigator.pushReplacement(
-                                        // ignore: use_build_context_synchronously
                                         context,
                                         MaterialPageRoute(
                                           builder:
@@ -175,11 +196,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                       );
                                     }
                                   } on FirebaseAuthException catch (e) {
-                                    // ignore: use_build_context_synchronously
+                                    if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
                                           e.message ?? 'Login failed',
+                                        ),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Unexpected error occurred.',
                                         ),
                                       ),
                                     );

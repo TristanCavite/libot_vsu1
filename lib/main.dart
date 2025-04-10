@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/welcome_screen.dart'; // ✅ import your welcome screen
+import 'screens/welcome_screen.dart';
+import 'utils/lifecycle_watcher.dart'; // 👈 import it
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const LibotVSUApp());
+  runApp(const LifecycleWatcher(child: LibotVSUApp())); // 👈 wrap here
 }
 
 class LibotVSUApp extends StatelessWidget {
@@ -18,10 +19,10 @@ class LibotVSUApp extends StatelessWidget {
       title: 'LibotVSU',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        fontFamily: 'Roboto', // optional: for consistency
+        fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const WelcomeScreen(), // 👈 your custom page here
+      home: const WelcomeScreen(),
     );
   }
 }
