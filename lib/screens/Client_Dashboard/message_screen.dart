@@ -105,6 +105,7 @@ class MessageScreen extends StatelessWidget {
                   hintText: 'Search messages...',
                   prefixIcon: const Icon(Icons.search),
                   filled: true,
+                  fillColor: Colors.grey[200],
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
