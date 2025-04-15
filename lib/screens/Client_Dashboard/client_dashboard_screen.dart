@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:libot_vsu1/screens/Client_Dashboard/activity_screen.dart';
+import 'package:libot_vsu1/screens/Client_Dashboard/message_screen.dart';
 
 class ClientDashboardScreen extends StatefulWidget {
   const ClientDashboardScreen({super.key});
@@ -53,11 +55,12 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
   }
 
   void _fetchAvailableDrivers() async {
-    final query = await FirebaseFirestore.instance
-        .collection('users')
-        .where('role', isEqualTo: 'Rider')
-        .where('status', isEqualTo: 'online')
-        .get();
+    final query =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .where('role', isEqualTo: 'Rider')
+            .where('status', isEqualTo: 'online')
+            .get();
 
     setState(() {
       availableDrivers = query.docs.map((doc) => doc.data()).toList();
@@ -81,7 +84,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
     final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
 
     await userDoc.update({
-      'savedPlaces': FieldValue.arrayUnion([place])
+      'savedPlaces': FieldValue.arrayUnion([place]),
     });
 
     setState(() {
@@ -121,86 +124,133 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
         child: Column(
           children: [
             Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-  child: Row(
-    children: [
-      const CircleAvatar(
-        radius: 24,
-        backgroundColor: Colors.white,
-        child: Icon(Icons.person, color: Color(0xFF00843D)),
-      ),
-      const SizedBox(width: 12),
-      // Wrap the name section in Flexible to avoid overflow
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(greeting, style: const TextStyle(color: Colors.white70)),
-            Text(
-              '$fullName (Client)',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                overflow: TextOverflow.ellipsis, // Avoid text breaking layout
-              ),
-              maxLines: 1,
-              softWrap: false,
-            )
-          ],
-        ),
-      ),
-      const SizedBox(width: 8),
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.white),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white),
-            onPressed: () {},
-          ),
-        ],
-      ),
-    ],
-  ),
-),
-
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                child: Column(
-                  children: [
-                    TabBar(
-                      controller: _tabController,
-                      labelColor: const Color(0xFF00843D),
-                      unselectedLabelColor: Colors.grey,
-                      indicator: const BoxDecoration(),
-                      tabs: const [
-                        Tab(icon: Icon(Icons.home), text: 'Home'),
-                        Tab(icon: Icon(Icons.show_chart), text: 'Activity'),
-                        Tab(icon: Icon(Icons.message), text: 'Messages'),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.white,
+                    child: Icon(Icons.person, color: Color(0xFF00843D)),
+                  ),
+                  const SizedBox(width: 12),
+                  // Wrap the name section in Flexible to avoid overflow
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          greeting,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        RichText(
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '$fullName ',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: '(Client)',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: TabBarView(
+                  ),
+                  const SizedBox(width: 5),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () {},
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.notifications,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 0),
+                      IconButton(
+                        onPressed: () {},
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.settings,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 40),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      TabBar(
                         controller: _tabController,
-                        children: [
-                          _buildHomeTab(),
-                          const Center(child: Text('Activity tab')),
-                          const Center(child: Text('Messages tab')),
+                        labelColor: const Color(0xFF00843D),
+                        unselectedLabelColor: Colors.grey,
+                        indicator: const BoxDecoration(),
+                        tabs: const [
+                          Tab(icon: Icon(Icons.home), text: 'Home'),
+                          Tab(icon: Icon(Icons.show_chart), text: 'Activity'),
+                          Tab(icon: Icon(Icons.message), text: 'Messages'),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildHomeTab(),
+                            const ActivityScreen(),
+                            const MessageScreen(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -211,180 +261,203 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
   }
 
   Widget _buildHomeTab() {
-  return SingleChildScrollView( // ✅ FIX: makes content scrollable on keyboard
-    padding: const EdgeInsets.only(bottom: 20), // ✅ Add padding for safety
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => setState(() => selectedTab = 'Ride'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedTab == 'Ride'
-                      ? const Color(0xFF00A651)
-                      : Colors.grey.shade200,
-                  foregroundColor: selectedTab == 'Ride' ? Colors.white : Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Ride'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => setState(() => selectedTab = 'Delivery'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedTab == 'Delivery'
-                      ? const Color(0xFF00A651)
-                      : Colors.grey.shade200,
-                  foregroundColor: selectedTab == 'Delivery' ? Colors.white : Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Delivery'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (selectedTab == 'Ride')
-          TypeAheadField<String>(
-            controller: destinationController,
-            builder: (context, controller, focusNode) {
-              return TextField(
-                controller: controller,
-                focusNode: focusNode,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.location_on),
-                  hintText: 'Destination',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+    return SingleChildScrollView(
+      // ✅ FIX: makes content scrollable on keyboard
+      padding: const EdgeInsets.only(bottom: 20), // ✅ Add padding for safety
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => setState(() => selectedTab = 'Ride'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        selectedTab == 'Ride'
+                            ? const Color(0xFF00A651)
+                            : Colors.grey.shade200,
+                    foregroundColor:
+                        selectedTab == 'Ride' ? Colors.white : Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
+                  child: const Text('Ride'),
                 ),
-              );
-            },
-            suggestionsCallback: (pattern) {
-              final suggestions = [
-                'VSU Market',
-                'Upper Oval',
-                'Tambaan Farm Cafe',
-                'Dlabs',
-                'DCST',
-                'Upper Utod',
-                'Lower Utod',
-                'Lower Oval',
-                'Gabas',
-                'Bunga',
-                'Marcos',
-                'Patag',
-                'Pangasugan',
-                'Baybay proper',
-                'Kilim',
-                'San Agustin',
-                'Candadam',
-                'Sta. Cruz',
-              ];
-              return suggestions
-                  .where((place) => place.toLowerCase().contains(pattern.toLowerCase()))
-                  .toList();
-            },
-            itemBuilder: (context, String suggestion) {
-              return ListTile(
-                leading: const Icon(Icons.location_on),
-                title: Text(suggestion),
-              );
-            },
-            onSelected: (String suggestion) {
-              setState(() {
-                destinationController.text = suggestion;
-              });
-            },
-          ),
-        const SizedBox(height: 20),
-        const Text('Available Drivers Nearby', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        if (availableDrivers.isEmpty)
-          const Text('No available riders at the moment')
-        else
-          Column(children: availableDrivers.map(_buildDriverCard).toList()),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Saved Places',
-                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () async {
-                final newPlace = await showDialog<String>(
-                  context: context,
-                  builder: (context) {
-                    final controller = TextEditingController();
-                    return AlertDialog(
-                      title: const Text('Add New Place'),
-                      content: TextField(
-                        controller: controller,
-                        decoration: const InputDecoration(hintText: 'Enter place name'),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(context, controller.text.trim()),
-                          child: const Text('Add'),
-                        ),
-                      ],
-                    );
-                  },
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => setState(() => selectedTab = 'Delivery'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        selectedTab == 'Delivery'
+                            ? const Color(0xFF00A651)
+                            : Colors.grey.shade200,
+                    foregroundColor:
+                        selectedTab == 'Delivery' ? Colors.white : Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Delivery'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (selectedTab == 'Ride')
+            TypeAheadField<String>(
+              controller: destinationController,
+              builder: (context, controller, focusNode) {
+                return TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.location_on),
+                    hintText: 'Destination',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 );
-                if (newPlace != null && newPlace.isNotEmpty) {
-                  _addNewSavedPlace(newPlace);
-                }
               },
-            )
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (savedPlaces.isEmpty)
-          const Text('No saved places yet')
-        else
-          Column(
-            children: savedPlaces
-                .map(
-                  (place) => ListTile(
-                    leading: const Icon(Icons.location_on),
-                    title: Text(place),
-                    onTap: () {
-                      destinationController.text = place;
+              suggestionsCallback: (pattern) {
+                final suggestions = [
+                  'VSU Market',
+                  'Upper Oval',
+                  'Tambaan Farm Cafe',
+                  'Dlabs',
+                  'DCST',
+                  'Upper Utod',
+                  'Lower Utod',
+                  'Lower Oval',
+                  'Gabas',
+                  'Bunga',
+                  'Marcos',
+                  'Patag',
+                  'Pangasugan',
+                  'Baybay proper',
+                  'Kilim',
+                  'San Agustin',
+                  'Candadam',
+                  'Sta. Cruz',
+                ];
+                return suggestions
+                    .where(
+                      (place) =>
+                          place.toLowerCase().contains(pattern.toLowerCase()),
+                    )
+                    .toList();
+              },
+              itemBuilder: (context, String suggestion) {
+                return ListTile(
+                  leading: const Icon(Icons.location_on),
+                  title: Text(suggestion),
+                );
+              },
+              onSelected: (String suggestion) {
+                setState(() {
+                  destinationController.text = suggestion;
+                });
+              },
+            ),
+          const SizedBox(height: 20),
+          const Text(
+            'Available Drivers Nearby',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          if (availableDrivers.isEmpty)
+            const Text('No available riders at the moment')
+          else
+            Column(children: availableDrivers.map(_buildDriverCard).toList()),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Saved Places',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () async {
+                  final newPlace = await showDialog<String>(
+                    context: context,
+                    builder: (context) {
+                      final controller = TextEditingController();
+                      return AlertDialog(
+                        title: const Text('Add New Place'),
+                        content: TextField(
+                          controller: controller,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter place name',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed:
+                                () => Navigator.pop(
+                                  context,
+                                  controller.text.trim(),
+                                ),
+                            child: const Text('Add'),
+                          ),
+                        ],
+                      );
                     },
-                  ),
-                )
-                .toList(),
+                  );
+                  if (newPlace != null && newPlace.isNotEmpty) {
+                    _addNewSavedPlace(newPlace);
+                  }
+                },
+              ),
+            ],
           ),
-        const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: () {
-            // Use destinationController.text here
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF00A651),
-            minimumSize: const Size.fromHeight(50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          const SizedBox(height: 8),
+          if (savedPlaces.isEmpty)
+            const Text('No saved places yet')
+          else
+            Column(
+              children:
+                  savedPlaces
+                      .map(
+                        (place) => ListTile(
+                          leading: const Icon(Icons.location_on),
+                          title: Text(place),
+                          onTap: () {
+                            destinationController.text = place;
+                          },
+                        ),
+                      )
+                      .toList(),
+            ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              // Use destinationController.text here
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00A651),
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              selectedTab == 'Ride' ? 'Request Ride' : 'Request Delivery',
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
-          child: Text(
-            selectedTab == 'Ride' ? 'Request Ride' : 'Request Delivery',
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
+        ],
+      ),
+    );
+  }
 }
