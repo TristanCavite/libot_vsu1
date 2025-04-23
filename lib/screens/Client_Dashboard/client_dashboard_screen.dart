@@ -5,6 +5,8 @@ import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/activity_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/message_screen.dart';
 import 'package:libot_vsu1/screens/Profile/client_Profile_screen.dart';
+import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/request_delivery_screen.dart';
+import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/request_ride_screen.dart';
 
 class ClientDashboardScreen extends StatefulWidget {
   const ClientDashboardScreen({super.key});
@@ -20,6 +22,11 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
   String fullName = 'User';
   String selectedTab = 'Ride';
   String profileUrl = '';
+
+  // Add state variable to track current view
+  bool showRequestScreen = false;
+  Widget? currentContent;
+  String requestType = '';
 
   List<Map<String, dynamic>> availableDrivers = [];
   List<String> savedPlaces = [];
@@ -239,6 +246,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
               ),
             ),
 
+            // NAVBAR
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(top: 40),
@@ -272,7 +280,8 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
                         child: TabBarView(
                           controller: _tabController,
                           children: [
-                            _buildHomeTab(),
+                            // First tab content with conditional display
+                            _buildHomeTabContent(),
                             const ActivityScreen(),
                             const MessageScreen(),
                           ],
@@ -282,11 +291,54 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
                   ),
                 ),
               ),
-            ),
+            ), // End of Navbar
           ],
         ),
       ),
     );
+  }
+
+  // For showing the request screen or the home tab content
+  Widget _buildHomeTabContent() {
+    if (showRequestScreen) {
+      return Column(
+        children: [
+          // Back button row
+          Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    showRequestScreen = false;
+                  });
+                },
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Color(0x1A00843D),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Color(0xFF00843D),
+                    size: 24,
+                  ),
+                ),
+              ),
+              Text(
+                '$requestType Details',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          // Request screen content
+          Expanded(child: currentContent ?? Container()),
+        ],
+      );
+    } else {
+      // Show regular home tab
+      return _buildHomeTab();
+    }
   }
 
   Widget _buildHomeTab() {
@@ -469,9 +521,21 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
                       .toList(),
             ),
           const SizedBox(height: 16),
+
+          // Modified Request Ride or Delivery Button
           ElevatedButton(
             onPressed: () {
-              // Use destinationController.text here
+              // Set the content based on selected tab
+              setState(() {
+                if (selectedTab == 'Ride') {
+                  currentContent = const RequestRideScreen();
+                  requestType = 'Ride';
+                } else {
+                  currentContent = const RequestDeliveryScreen();
+                  requestType = 'Delivery';
+                }
+                showRequestScreen = true;
+              });
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00A651),
