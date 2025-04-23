@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/activity_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/message_screen.dart';
+import 'package:libot_vsu1/screens/Profile/client_Profile_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/request_delivery_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/request_ride_screen.dart';
 
@@ -20,6 +21,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
   String greeting = 'Hello';
   String fullName = 'User';
   String selectedTab = 'Ride';
+  String profileUrl = '';
 
   // Add state variable to track current view
   bool showRequestScreen = false;
@@ -54,11 +56,17 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
   void _fetchUserProfile() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+
     final doc =
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    setState(() {
-      fullName = doc['fullName'] ?? 'User';
-    });
+    final data = doc.data();
+
+    if (data != null) {
+      setState(() {
+        fullName = data['fullName'] ?? 'User';
+        profileUrl = data['profileUrl'] ?? ''; // ✅ Get profile picture
+      });
+    }
   }
 
   void _fetchAvailableDrivers() async {
@@ -134,11 +142,32 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, color: Color(0xFF00843D)),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ClientProfileScreen(),
+                        ),
+                      );
+                    },
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.white,
+                      backgroundImage:
+                          profileUrl.isNotEmpty
+                              ? NetworkImage(profileUrl)
+                              : null,
+                      child:
+                          profileUrl.isEmpty
+                              ? const Icon(
+                                Icons.person,
+                                color: Color(0xFF00843D),
+                              )
+                              : null,
+                    ),
                   ),
+
                   const SizedBox(width: 12),
                   // Wrap the name section in Flexible to avoid overflow
                   Expanded(

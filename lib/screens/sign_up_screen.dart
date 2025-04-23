@@ -4,6 +4,7 @@ import 'package:libot_vsu1/screens/Rider_Dashboard/rider_dashboard_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/client_dashboard_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -22,7 +23,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       TextEditingController();
 
   final TextEditingController _fullNameController = TextEditingController();
-  final TextEditingController _contactController = TextEditingController();
 
   void _toggleRole(String role) {
     setState(() {
@@ -205,24 +205,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Contact Number
-                          TextFormField(
-                            controller: _contactController,
-                            keyboardType: TextInputType.phone,
-                            decoration: InputDecoration(
-                              hintText: 'Contact Number',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            validator:
-                                (value) =>
-                                    value == null || value.trim().isEmpty
-                                        ? 'Enter your contact number'
-                                        : null,
-                          ),
-                          const SizedBox(height: 12),
-
                           // Email
                           TextFormField(
                             controller: _emailController,
@@ -298,10 +280,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     _passwordController.text.trim();
                                 final fullName =
                                     _fullNameController.text.trim();
-                                final contact = _contactController.text.trim();
-
                                 try {
-                                  // Firebase Sign-Up
                                   final UserCredential userCredential =
                                       await FirebaseAuth.instance
                                           .createUserWithEmailAndPassword(
@@ -309,13 +288,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                             password: password,
                                           );
 
-                                  // Save user data to Firestore
+                                  // Firestore
                                   await FirebaseFirestore.instance
                                       .collection('users')
                                       .doc(userCredential.user!.uid)
                                       .set({
                                         'fullName': fullName,
-                                        'contact': contact,
                                         'email': email,
                                         'role': _selectedRole,
                                         'status': 'online',
@@ -324,16 +302,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                         'uid': userCredential.user!.uid,
                                       });
 
+                                  // Supabase
+                                  try {
+                                    final response =
+                                        await Supabase.instance.client
+                                            .from('users')
+                                            .insert({
+                                              'user_id':
+                                                  userCredential
+                                                      .user!
+                                                      .uid, // Firebase UID is a string
+                                              'email': email,
+                                            })
+                                            .select();
+
+                                    print("Supabase insert OK: $response");
+                                  } catch (e) {
+                                    print("Supabase insert ERROR: $e");
+                                  }
+
                                   if (!mounted) return;
 
-                                  // Navigate to respective dashboard
                                   final dashboard =
                                       _selectedRole == 'Rider'
                                           ? const RiderDashboardScreen()
                                           : const ClientDashboardScreen();
 
                                   Navigator.pushReplacement(
-                                    // ignore: use_build_context_synchronously
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => dashboard,
