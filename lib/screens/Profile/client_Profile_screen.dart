@@ -102,7 +102,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
       'mobile': _mobileController.text.trim(),
       'address': _addressController.text.trim(),
       'studentId': _studentIdController.text.trim(),
-      'courseYear': _courseYearController.text.trim(),
+      'courseYear': _courseYearController.text.trim(),//example
     });
 
     setState(() => isEditing = false);
