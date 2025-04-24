@@ -498,6 +498,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     final Color avatarColor = request['avatarColor'] ?? Colors.grey;
 
     // Get initials from name
+    // Placeholder since wala pay picture
     String initials =
         name
             .split(' ')
