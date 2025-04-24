@@ -1,71 +1,87 @@
 import 'package:flutter/material.dart';
 
-class MessageScreen extends StatelessWidget {
+class MessageScreen extends StatefulWidget {
   const MessageScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    //Mock data for messages
-    final List<Map<String, dynamic>> messages = [
-      {
-        'name': 'David Bombal',
-        'message': 'Hey, are you available to give me a ride?',
-        'time': '12:41 AM',
-        'online': true,
-        'avatar': 'assets/images/default_profile.png',
-        'isRead': true,
-        'unreadCount': 0,
-      },
-      {
-        'name': 'Sam Garcia',
-        'message': 'Can you deliver the document I have right now?',
-        'time': '12:08 PM',
-        'online': false,
-        'avatar': 'assets/images/default_profile.png',
-        'isRead': true,
-        'unreadCount': 0,
-      },
-      {
-        'name': 'David Kim',
-        'message': 'Hey, are you available to give me a ride?',
-        'time': '12:41 AM',
-        'online': true,
-        'avatar': 'assets/images/default_profile.png',
-        'isRead': false,
-        'unreadCount': 2,
-      },
-      {
-        'name': 'Sam Garcia',
-        'message': 'Can you deliver the document I have right now?',
-        'time': '12:08 PM',
-        'online': false,
-        'avatar': 'assets/images/default_profile.png',
-        'isRead': true,
-        'unreadCount': 0,
-      },
-      {
-        'name': 'Serge Garcia',
-        'message': 'Can you deliver the document I have right now?',
-        'time': '12:08 PM',
-        'online': false,
-        'avatar': 'assets/images/default_profile.png',
-        'isRead': false,
-        'unreadCount': 5,
-      },
-      {
-        'name': 'Jhon Doe',
-        'message': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-        'time': '2:08 PM',
-        'online': false,
-        'avatar': 'assets/images/default_profile.png',
-        'isRead': false,
-        'unreadCount': 1,
-      },
-    ];
+  State<MessageScreen> createState() => MessageScreenState();
+}
 
+class MessageScreenState extends State<MessageScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  final List<Map<String, dynamic>> _allMessages = [
+    {
+      'name': 'David Bombal',
+      'message': 'Hey, are you available to give me a ride?',
+      'time': '12:41 AM',
+      'online': true,
+      'avatar': 'assets/images/default_profile.png',
+      'isRead': true,
+      'unreadCount': 0,
+    },
+    {
+      'name': 'Sam Garcia',
+      'message': 'Can you deliver the document I have right now?',
+      'time': '12:08 PM',
+      'online': false,
+      'avatar': 'assets/images/default_profile.png',
+      'isRead': true,
+      'unreadCount': 0,
+    },
+    {
+      'name': 'David Kim',
+      'message': 'Hey, are you available to give me a ride?',
+      'time': '12:41 AM',
+      'online': true,
+      'avatar': 'assets/images/default_profile.png',
+      'isRead': false,
+      'unreadCount': 2,
+    },
+    {
+      'name': 'Serge Garcia',
+      'message': 'Can you deliver the document I have right now?',
+      'time': '12:08 PM',
+      'online': false,
+      'avatar': 'assets/images/default_profile.png',
+      'isRead': false,
+      'unreadCount': 5,
+    },
+    {
+      'name': 'Jhon Doe',
+      'message': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+      'time': '2:08 PM',
+      'online': false,
+      'avatar': 'assets/images/default_profile.png',
+      'isRead': false,
+      'unreadCount': 1,
+    },
+  ];
+
+  List<Map<String, dynamic>> _filteredMessages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredMessages = _allMessages;
+
+    _searchController.addListener(() {
+      final query = _searchController.text.toLowerCase();
+      setState(() {
+        _filteredMessages =
+            _allMessages.where((msg) {
+              final name = msg['name'].toString().toLowerCase();
+              return name.contains(query);
+            }).toList();
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
+          // Header
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
@@ -87,7 +103,7 @@ class MessageScreen extends StatelessWidget {
                     color: Colors.black,
                   ),
                   onPressed: () {
-                    // Add message logic ngari
+                    // Add message logic here
                   },
                 ),
               ],
@@ -100,6 +116,7 @@ class MessageScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
               child: TextField(
+                controller: _searchController,
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: 'Search messages...',
@@ -116,21 +133,25 @@ class MessageScreen extends StatelessWidget {
             ),
           ),
 
-          // Message List
+          // Filtered Message List
           Expanded(
             child: Container(
               color: Colors.white,
               child: ListView.builder(
-                itemCount: messages.length,
+                itemCount: _filteredMessages.length,
                 itemBuilder: (context, index) {
-                  final msg = messages[index];
+                  final msg = _filteredMessages[index];
                   final bool isRead = msg['isRead'] ?? false;
 
                   return Container(
-                    color:
-                        isRead
-                            ? Colors.white
-                            : const Color(0xFFF1F1F1), // Highlight if unread
+                    decoration: BoxDecoration(
+                      color: isRead ? Colors.white : const Color(0xFFF1F1F1),
+                      borderRadius: isRead ? null : BorderRadius.circular(12),
+                    ),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,

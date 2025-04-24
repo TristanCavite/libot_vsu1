@@ -109,6 +109,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
 
   Widget _buildDriverCard(Map<String, dynamic> driver) {
     return Card(
+      color: Colors.grey[100],
       elevation: 1,
       margin: const EdgeInsets.symmetric(vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
