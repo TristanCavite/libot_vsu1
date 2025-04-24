@@ -21,9 +21,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF00843D),
+      resizeToAvoidBottomInset: true, // Important for handling keyboard
       body: Stack(
         children: [
-          // Circles in background
+          // Background circles
           Positioned(
             top: 120,
             left: -150,
@@ -49,18 +50,19 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // Content
+          // Scrollable login content
           SafeArea(
             child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: 500,
-                  minHeight: MediaQuery.of(context).size.height * 0.9,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: 24,
+                  left: 16,
+                  right: 16,
+                  top: 24,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Profile icon
                     const CircleAvatar(
                       radius: 40,
                       backgroundColor: Colors.white,
@@ -72,7 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Title
                     const Text(
                       'Login',
                       style: TextStyle(
@@ -87,13 +88,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(color: Colors.white70),
                       textAlign: TextAlign.center,
                     ),
-
                     const SizedBox(height: 24),
 
-                    // Card container
                     Container(
+                      margin: const EdgeInsets.only(top: 24),
+                      width: 320,
                       padding: const EdgeInsets.all(24),
-                      margin: const EdgeInsets.symmetric(horizontal: 24),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(28),
@@ -106,14 +106,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             const Text(
                               'Welcome Back',
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: 25,
                                 fontWeight: FontWeight.bold,
                               ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
 
-                            // Email
                             TextFormField(
                               controller: _emailController,
                               decoration: InputDecoration(
@@ -125,7 +124,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 12),
 
-                            // Password
                             TextFormField(
                               controller: _passwordController,
                               obscureText: true,
@@ -138,7 +136,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 20),
 
-                            // Login button
                             ElevatedButton(
                               onPressed: () async {
                                 if (_formKey.currentState!.validate()) {
@@ -147,7 +144,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       _passwordController.text.trim();
 
                                   try {
-                                    // 🔐 Sign in with Firebase Auth
                                     final userCredential = await FirebaseAuth
                                         .instance
                                         .signInWithEmailAndPassword(
@@ -156,7 +152,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                         );
                                     final uid = userCredential.user!.uid;
 
-                                    // 🔄 Update Firestore status to 'online'
                                     await FirebaseFirestore.instance
                                         .collection('users')
                                         .doc(uid)
@@ -166,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                               FieldValue.serverTimestamp(),
                                         });
 
-                                    // 🔍 Fetch user role from Firestore
                                     final userDoc =
                                         await FirebaseFirestore.instance
                                             .collection('users')
@@ -174,8 +168,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                             .get();
                                     final role = userDoc.data()?['role'];
 
-                                    // ✅ Navigate based on role
                                     if (!mounted) return;
+
                                     if (role == 'Rider') {
                                       Navigator.pushReplacement(
                                         context,
@@ -216,7 +210,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   }
                                 }
                               },
-
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF00A651),
                                 padding: const EdgeInsets.symmetric(
@@ -233,7 +226,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Sign Up
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
