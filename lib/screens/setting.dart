@@ -212,7 +212,7 @@ class SettingScreen extends StatelessWidget {
     );
   }
 
-  Widget _deleteAccountButton() {
+  Widget _deleteAccountButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: SizedBox(
@@ -220,6 +220,18 @@ class SettingScreen extends StatelessWidget {
         child: TextButton.icon(
           onPressed: () {
             // Perform an action
+            _showConfirmationDialog(
+              context,
+              title: "Delete Account",
+              content:
+                  "Are you sure you want to delete your account? \n\nThis action cannot be undone.",
+              confirmButtonText: "Delete",
+              confirmButtonColor: Colors.red,
+              onConfirm: () {
+                // Perform delete account logic here
+                Navigator.pop(context); // Close dialog
+              },
+            );
           },
           icon: const Icon(Icons.delete, color: Colors.white, size: 26),
           label: const Text(
@@ -239,7 +251,7 @@ class SettingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLogoutButton() {
+  Widget _buildLogoutButton(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: SizedBox(
@@ -247,6 +259,17 @@ class SettingScreen extends StatelessWidget {
         child: TextButton.icon(
           onPressed: () {
             // Perform an action
+            _showConfirmationDialog(
+              context,
+              title: "Logout",
+              content: "Are you sure you want to logout?",
+              confirmButtonText: "Logout",
+              confirmButtonColor: Colors.black,
+              onConfirm: () {
+                // Perform logout logic here
+                Navigator.pop(context); // Close dialog
+              },
+            );
           },
           icon: const Icon(Icons.logout, color: Colors.black, size: 26),
           label: const Text(
@@ -276,11 +299,57 @@ class SettingScreen extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildLogoutButton(),
+          _buildLogoutButton(context),
           const SizedBox(height: 5), // Space between buttons
-          _deleteAccountButton(),
+          _deleteAccountButton(context),
         ],
       ),
+    );
+  }
+
+  void _showConfirmationDialog(
+    BuildContext context, {
+    required String title,
+    required String content,
+    required String confirmButtonText,
+    required Color confirmButtonColor,
+    required VoidCallback onConfirm,
+  }) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Colors.black,
+              ),
+            ),
+            content: Text(
+              content,
+              style: const TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  "Cancel",
+                  style: TextStyle(color: Colors.black54),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: confirmButtonColor,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: onConfirm,
+                child: Text(confirmButtonText),
+              ),
+            ],
+          ),
     );
   }
 }
