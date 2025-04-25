@@ -7,6 +7,7 @@ import 'package:libot_vsu1/screens/Client_Dashboard/message_screen.dart';
 import 'package:libot_vsu1/screens/Profile/client_Profile_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/request_delivery_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/request_ride_screen.dart';
+import 'package:libot_vsu1/screens/setting.dart';
 
 class ClientDashboardScreen extends StatefulWidget {
   const ClientDashboardScreen({super.key});
@@ -227,7 +228,14 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
                       ),
                       const SizedBox(width: 0),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SettingScreen(),
+                            ),
+                          );
+                        },
                         icon: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(

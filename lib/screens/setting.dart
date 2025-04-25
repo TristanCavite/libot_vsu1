@@ -52,7 +52,18 @@ class SettingScreen extends StatelessWidget {
         IconButton(
           onPressed:
               () => Navigator.pop(context), // Go back to the previous screen
-          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 24),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Color(0x1A00843D),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.arrow_back,
+              color: Color(0xFF00843D),
+              size: 24,
+            ),
+          ),
         ),
         const Text(
           'Settings',

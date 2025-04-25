@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:libot_vsu1/screens/Rider_Dashboard/rider_activity_screen.dart';
 import 'package:libot_vsu1/screens/Rider_Dashboard/rider_message_screen.dart';
+import 'package:libot_vsu1/screens/setting.dart';
 
 class RiderDashboardScreen extends StatefulWidget {
   const RiderDashboardScreen({super.key});
@@ -309,7 +310,14 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                       ),
                       const SizedBox(width: 0),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SettingScreen(),
+                            ),
+                          );
+                        },
                         icon: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
