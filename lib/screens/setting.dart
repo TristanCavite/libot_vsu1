@@ -7,8 +7,11 @@ class SettingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF00843D), // Background color
-      body: Stack(
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          const SizedBox(height: 16), // Space at the top
+          _buildLogo(), // Logo at the top
           Align(
             alignment: Alignment.bottomCenter, // Align to the bottom center
             child: Container(
@@ -19,7 +22,10 @@ class SettingScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16), // Add padding inside the box
               decoration: BoxDecoration(
                 color: Colors.white, // White background
-                borderRadius: BorderRadius.circular(32), // Rounded corners
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
+                ), // Rounded corners
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,6 +84,19 @@ class SettingScreen extends StatelessWidget {
             const SizedBox(height: 8),
             _buildContactInfo(Icons.phone, '09248782378'),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogo() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Center(
+        child: Image.asset(
+          'assets/logo.png', // Replace with your logo asset path
+          width: 215,
+          height: 100,
         ),
       ),
     );
@@ -142,21 +161,40 @@ class SettingScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: SizedBox(
         width: double.infinity, // Make the button span the full width
-        child: TextButton.icon(
+        child: TextButton(
           onPressed: () {
             // Perform an action
           },
-          icon: const Icon(Icons.info, color: Colors.black54, size: 26),
-          label: const Text(
-            'About',
-            style: TextStyle(fontSize: 16, color: Colors.black54),
-          ),
           style: TextButton.styleFrom(
-            alignment: Alignment.centerLeft, // Align content to the left
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16), // Light grey background
+            alignment: Alignment.centerLeft,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16), // Rounded corners
-            ),
+              borderRadius: BorderRadius.circular(16),
+            ), // Align content to the left
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.info,
+                    color: Colors.black54,
+                    size: 26,
+                  ), // Info icon
+                  const SizedBox(width: 8), // Space between icon and text
+                  const Text(
+                    'About',
+                    style: TextStyle(fontSize: 20, color: Colors.black54),
+                  ),
+                ],
+              ),
+              const Icon(
+                Icons.arrow_forward_ios, // Forward arrow icon
+                color: Colors.black54,
+                size: 20,
+              ),
+            ],
           ),
         ),
       ),
