@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:libot_vsu1/screens/Rider_Dashboard/rider_activity_screen.dart';
 import 'package:libot_vsu1/screens/Rider_Dashboard/rider_message_screen.dart';
 import 'package:libot_vsu1/screens/setting.dart';
+import 'package:libot_vsu1/screens/Profile/rider_Profile_screen.dart';
 
 class RiderDashboardScreen extends StatefulWidget {
   const RiderDashboardScreen({super.key});
@@ -228,14 +229,14 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
               child: Row(
                 children: [
                   GestureDetector(
-                    // onTap: () {
-                    //   Navigator.push(
-                    //      context,
-                    //      MaterialPageRoute(
-                    //        builder: (context) => const ClientProfileScreen(),
-                    //      ),
-                    //    );
-                    // },
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RiderProfileScreen(),
+                        ),
+                      );
+                    },
                     child: CircleAvatar(
                       radius: 24,
                       backgroundColor: Colors.white,
