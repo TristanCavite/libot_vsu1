@@ -314,7 +314,10 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  // Handle ride request confirmation
+                  // Add logic to send the request
+                },
                 child: const Text(
                   'Confirm Ride Request',
                   style: TextStyle(fontSize: 16, color: Colors.white),
