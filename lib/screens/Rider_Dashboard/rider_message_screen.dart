@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class MessageScreen extends StatefulWidget {
-  const MessageScreen({super.key});
+class RiderMessageScreen extends StatefulWidget {
+  const RiderMessageScreen({super.key});
 
   @override
-  State<MessageScreen> createState() => MessageScreenState();
+  State<RiderMessageScreen> createState() => _RiderMessageScreenState();
 }
 
-class MessageScreenState extends State<MessageScreen> {
+class _RiderMessageScreenState extends State<RiderMessageScreen> {
   final TextEditingController _searchController = TextEditingController();
   final List<Map<String, dynamic>> _allMessages = [
     {

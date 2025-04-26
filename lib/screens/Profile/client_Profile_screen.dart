@@ -237,6 +237,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                         return null;
                                       },
                                     ),
+                                    const SizedBox(height: 12),
+
                                     TextFormField(
                                       controller: _mobileController,
                                       readOnly: !isEditing,
@@ -257,6 +259,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                         return null;
                                       },
                                     ),
+                                    const SizedBox(height: 12),
+
                                     TextFormField(
                                       controller: _courseYearController,
                                       readOnly: !isEditing,
@@ -277,6 +281,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                         return null;
                                       },
                                     ),
+                                    const SizedBox(height: 12),
+
                                     TextFormField(
                                       controller: _addressController,
                                       readOnly: !isEditing,
@@ -297,8 +303,9 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                         return null;
                                       },
                                     ),
+                                    const SizedBox(height: 12),
 
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 10),
                                     studentIdUrl.isEmpty
                                         ? ElevatedButton(
                                           onPressed:
@@ -350,8 +357,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-
-
                                             const SizedBox(height: 8),
                                             const Align(
                                               alignment: Alignment.centerLeft,
@@ -467,12 +472,14 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           ),
                                         ),
                                       ),
-                                    const SizedBox(height: 24),
+
+                                    // Logout button
+                                    const SizedBox(height: 10),
                                     OutlinedButton(
                                       onPressed: _logout,
                                       style: OutlinedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 32,
+                                          horizontal: 50,
                                           vertical: 14,
                                         ),
                                         side: const BorderSide(

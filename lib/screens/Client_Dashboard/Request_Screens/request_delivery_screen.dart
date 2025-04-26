@@ -310,7 +310,10 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  // Handle delivery request confirmation here
+                  // Add logic to send the request
+                },
                 child: const Text(
                   'Confirm Delivery Request',
                   style: TextStyle(fontSize: 16, color: Colors.white),
