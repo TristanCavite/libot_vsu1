@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class SettingScreen extends StatelessWidget {
+class SettingScreen extends StatefulWidget {
   const SettingScreen({super.key});
+
+  @override
+  _SettingScreenState createState() => _SettingScreenState();
+}
+
+class _SettingScreenState extends State<SettingScreen> {
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +43,6 @@ class SettingScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(context),
-                  const SizedBox(height: 16),
                   _buildProfileDetails(),
                   const SizedBox(height: 16),
 
@@ -267,6 +278,7 @@ class SettingScreen extends StatelessWidget {
               confirmButtonColor: Colors.black,
               onConfirm: () {
                 // Perform logout logic here
+                _logout(); // Call the logout function
                 Navigator.pop(context); // Close dialog
               },
             );
