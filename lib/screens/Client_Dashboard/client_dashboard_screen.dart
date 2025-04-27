@@ -458,11 +458,20 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
             'Available Drivers Nearby',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           if (availableDrivers.isEmpty)
             const Text('No available riders at the moment')
           else
-            Column(children: availableDrivers.map(_buildDriverCard).toList()),
+            // Column(children: availableDrivers.map(_buildDriverCard).toList()),
+            SizedBox(
+              height: 200,
+              child: ListView.builder(
+                itemCount: availableDrivers.length,
+                itemBuilder: (context, index) {
+                  return _buildDriverCard(availableDrivers[index]);
+                },
+              ),
+            ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -511,23 +520,42 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           if (savedPlaces.isEmpty)
             const Text('No saved places yet')
           else
-            Column(
-              children:
-                  savedPlaces
-                      .map(
-                        (place) => ListTile(
-                          leading: const Icon(Icons.location_on),
-                          title: Text(place),
-                          onTap: () {
-                            destinationController.text = place;
-                          },
-                        ),
-                      )
-                      .toList(),
+            SizedBox(
+              height: 150,
+              child: ListView.builder(
+                itemCount: savedPlaces.length,
+                itemBuilder: (context, index) {
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      title: Text(savedPlaces[index]),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () async {
+                          final uid = FirebaseAuth.instance.currentUser?.uid;
+                          if (uid == null) {
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(uid)
+                                .update({
+                                  'savedPlaces': FieldValue.arrayRemove([
+                                    savedPlaces[index],
+                                  ]),
+                                });
+                          }
+                          setState(() {
+                            savedPlaces.removeAt(index);
+                          });
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           const SizedBox(height: 16),
 
