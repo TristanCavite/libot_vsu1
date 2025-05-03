@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // date formatting
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:libot_vsu1/utils/fare_calculator.dart';
+import 'package:libot_vsu1/widgets/osm_map.dart'; // 🧭 Step 3B: import OSM map widget
+import 'package:latlong2/latlong.dart'; // 🆕 For LatLng
+import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ Firestore
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ Optional: attach riderId or clientId
+import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/pending_screen.dart'; // ✅ Import pending screen
+import 'package:libot_vsu1/screens/Client_Dashboard/client_dashboard_screen.dart';
+
 
 class RequestRideScreen extends StatefulWidget {
-  const RequestRideScreen({super.key});
+  final String destination;
+  final List<Map<String, dynamic>> placesList;
+  const RequestRideScreen({
+    super.key,
+    required this.destination,
+    required this.placesList,
+  });
 
   @override
   State<RequestRideScreen> createState() => _RequestRideScreenState();
@@ -12,21 +27,30 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
   // Controllers for text fields
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
+  final TextEditingController _pickupLocationController =
+      TextEditingController();
+  final TextEditingController _destinationController = TextEditingController();
+
+  String _selectedPaymentMethod = 'Cash'; // ✅ Default payment
 
   // Selected pickup option
   String _selectedPickupOption = 'Now';
+  String fare = '0'; // fare price variable
+
+  // 🆕 Holds map pin coordinates from OsmMap
+  LatLng? _pinLocation; // 🧭 NEW: to store final pickup coordinates
 
   @override
   void initState() {
     super.initState();
-    // Set current date and time
-    if (_selectedPickupOption == 'Now') {
-      _setCurrentDateTime();
-    }
+    _destinationController.text = widget.destination;
+    if (_selectedPickupOption == 'Now') _setCurrentDateTime();
   }
 
   @override
   void dispose() {
+    _pickupLocationController.dispose();
+    _destinationController.dispose();
     _dateController.dispose();
     _timeController.dispose();
     super.dispose();
@@ -99,6 +123,33 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
     }
   }
 
+  void _updateFare() {
+    final pickup = _pickupLocationController.text.trim();
+    final destination = _destinationController.text.trim();
+    final pickupCampusCategory = _findCampusCategory(pickup);
+    final destinationCampusCategory = _findCampusCategory(destination);
+
+    final calculatedFare = calculateFare(
+      pickup,
+      destination,
+      pickupCampusCategory,
+      destinationCampusCategory,
+    );
+    setState(() {
+      fare = calculatedFare;
+    });
+  }
+
+  String? _findCampusCategory(String placeName) {
+    final match = widget.placesList.firstWhere(
+      (place) =>
+          (place['name'] as String).toLowerCase() == placeName.toLowerCase(),
+      orElse: () => {},
+    );
+    if (match.isEmpty) return null;
+    return match['campusCategory'] as String?;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,52 +159,98 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const TextField(
-              decoration: InputDecoration(
-                prefixIcon: Icon(
-                  Icons.circle_rounded,
-                  color: Color(0xFF00843D),
-                  size: 15,
-                ),
-                hintText: 'Pickup Location',
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+            // 🔥 Pickup location field
+            TypeAheadField<String>(
+              controller: _pickupLocationController,
+              builder:
+                  (context, controller, focusNode) => TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(
+                        Icons.circle_rounded,
+                        color: Color(0xFF00843D),
+                        size: 15,
+                      ),
+                      hintText: 'Pickup Location',
+                      filled: true,
+                      fillColor: Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+              suggestionsCallback: (pattern) {
+                return widget.placesList
+                    .where(
+                      (place) => (place['name'] as String)
+                          .toLowerCase()
+                          .contains(pattern.toLowerCase()),
+                    )
+                    .map((place) => place['name'] as String)
+                    .toList(); // 🛠️ Return List<String> for suggestions
+              },
+              itemBuilder:
+                  (context, suggestion) => ListTile(title: Text(suggestion)),
+              onSelected: (suggestion) {
+                _pickupLocationController.text = suggestion;
+                _updateFare(); // 🛠️ Update fare when pickup is selected
+              },
             ),
             const SizedBox(height: 12),
 
-            //Matic ata ning destination ngari or need pani iclick pero rag dili ni text ari guro
-            const TextField(
-              decoration: InputDecoration(
-                prefixIcon: Icon(
-                  Icons.circle_rounded,
-                  color: Color(0xFF424242),
-                  size: 15,
-                ),
-                hintText: 'Destination',
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+            // 🔥 Destination field
+            TypeAheadField<String>(
+              controller: _destinationController,
+              builder:
+                  (context, controller, focusNode) => TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(
+                        Icons.circle_rounded,
+                        color: Color(0xFF424242),
+                        size: 15,
+                      ),
+                      hintText: 'Destination',
+                      filled: true,
+                      fillColor: Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+              suggestionsCallback: (pattern) {
+                return widget.placesList
+                    .where(
+                      (place) => (place['name'] as String)
+                          .toLowerCase()
+                          .contains(pattern.toLowerCase()),
+                    )
+                    .map((place) => place['name'] as String)
+                    .toList();
+              },
+              itemBuilder:
+                  (context, suggestion) => ListTile(title: Text(suggestion)),
+              onSelected: (suggestion) {
+                _destinationController.text = suggestion;
+                _updateFare();
+              },
             ),
             const SizedBox(height: 12),
 
             // Need logic para automatic na ma fill and exact fee
-            const TextField(
+            // 🔥 Fare display field
+            TextField(
               enabled: false,
-              decoration: InputDecoration(
+              controller: TextEditingController(text: 'Fare: ₱$fare'),
+              decoration: const InputDecoration(
                 prefixIcon: Icon(
                   Icons.attach_money_outlined,
                   color: Colors.black,
                 ),
-                hintText: 'Fare: 0',
                 filled: true,
                 fillColor: Color(0xFFF5F5F5),
                 border: OutlineInputBorder(
@@ -165,17 +262,23 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
 
             // Insert mapa ari
             const SizedBox(height: 12),
+
+            // 🌍 Replaced static image with OSMMap widget
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'assets/images/map_placeholder.png',
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
+              child: SizedBox(
+                height: 200,
+                child: OsmMap(
+                  onLocationChanged: (LatLng location) {
+                    setState(() {
+                      _pinLocation = location; // ✅ Store pin location from map
+                    });
+                  },
+                ), // 🧭 Step 3B: inserted map here
               ),
             ),
 
-            // Pickup time
+            // 🕒 Pickup Time
             const SizedBox(height: 16),
             const Text(
               'Pickup Time',
@@ -189,7 +292,7 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                     onTap: () {
                       setState(() {
                         _selectedPickupOption = 'Now';
-                        _setCurrentDateTime();
+                        _setCurrentDateTime(); // ⏱️ Sets the current time automatically
                       });
                     },
                     child: Container(
@@ -234,7 +337,7 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                     onPressed: () {
                       setState(() {
                         _selectedPickupOption = 'Schedule';
-                        _clearDateTime();
+                        _clearDateTime(); // 🧹 Clears default time when scheduling
                       });
                     },
                     child: const Text('Schedule'),
@@ -242,38 +345,42 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _dateController,
-              readOnly: true,
-              onTap: () => _selectDate(context),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.calendar_today),
-                hintText: 'Date',
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide.none,
+
+            // ✅ Conditionally show Date & Time fields only if “Schedule” is selected
+            if (_selectedPickupOption == 'Schedule') ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _dateController,
+                readOnly: true,
+                onTap: () => _selectDate(context),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.calendar_today),
+                  hintText: 'Date',
+                  filled: true,
+                  fillColor: Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _timeController,
-              readOnly: true,
-              onTap: () => _selectTime(context),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.access_time),
-                hintText: 'Time',
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide.none,
+              const SizedBox(height: 12),
+              TextField(
+                controller: _timeController,
+                readOnly: true,
+                onTap: () => _selectTime(context),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.access_time),
+                  hintText: 'Time',
+                  filled: true,
+                  fillColor: Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
+            ],
 
             //Payment method
             const SizedBox(height: 16),
@@ -293,12 +400,18 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                   border: InputBorder.none,
                   icon: Icon(Icons.account_balance_wallet_outlined),
                 ),
-                value: 'Cash',
+                value: _selectedPaymentMethod,
                 items:
                     ['Cash', 'GCash', 'Credit Card']
                         .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                         .toList(),
-                onChanged: (value) {},
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(
+                      () => _selectedPaymentMethod = value,
+                    ); // ✅ Update on change
+                  }
+                },
               ),
             ),
 
@@ -314,10 +427,61 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () {
-                  // Handle ride request confirmation
-                  // Add logic to send the request
-                },
+                onPressed: () async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('User not logged in')),
+    );
+    return;
+  }
+
+  final requestData = {
+    'clientId': user.uid,
+    'pickupLocation': _pickupLocationController.text,
+    'destination': _destinationController.text,
+    'pickupTime': _selectedPickupOption == 'Now'
+        ? 'Now'
+        : '${_dateController.text}, ${_timeController.text}',
+    'pin': {
+      'lat': _pinLocation?.latitude,
+      'lng': _pinLocation?.longitude,
+    },
+    'paymentMethod': _selectedPaymentMethod,
+    'status': 'pending',
+    'timestamp': FieldValue.serverTimestamp(),
+  };
+
+  try {
+    final docRef = await FirebaseFirestore.instance
+        .collection('ride_requests')
+        .add(requestData);
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .update({'pendingRequestId': docRef.id});
+
+    if (!mounted) return;
+
+    // ✅ Don't pop, just inject directly
+    final dashboardState = context.findAncestorStateOfType<ClientDashboardScreenState>();
+    if (dashboardState != null) {
+      dashboardState.setState(() {
+        dashboardState.currentContent = PendingScreen(requestId: docRef.id);
+        dashboardState.requestType = 'Pending';
+        dashboardState.showRequestScreen = true;
+      });
+    }
+  } catch (e) {
+    print('[ERROR] $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to send request: $e')),
+    );
+  }
+},
+
+
                 child: const Text(
                   'Confirm Ride Request',
                   style: TextStyle(fontSize: 16, color: Colors.white),
