@@ -6,24 +6,26 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mime/mime.dart';
 
-class ClientProfileScreen extends StatefulWidget {
-  const ClientProfileScreen({super.key});
+class RiderProfileScreen extends StatefulWidget {
+  const RiderProfileScreen({super.key});
 
   @override
-  State<ClientProfileScreen> createState() => _ClientProfileScreenState();
+  State<RiderProfileScreen> createState() => _RiderProfileScreenState();
 }
 
-class _ClientProfileScreenState extends State<ClientProfileScreen> {
+class _RiderProfileScreenState extends State<RiderProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _studentIdController = TextEditingController();
   final TextEditingController _courseYearController = TextEditingController();
+  final TextEditingController _vehicleController = TextEditingController();
 
   String fullName = '';
   String email = '';
   String profileUrl = '';
   String studentIdUrl = '';
+  String driversLicenseUrl = '';
   bool isEditing = false;
 
   @override
@@ -44,10 +46,12 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
         email = data['email'] ?? '';
         profileUrl = data['profileUrl'] ?? '';
         studentIdUrl = data['studentIdUrl'] ?? '';
+        driversLicenseUrl = data['driversLicenseUrl'] ?? '';
         _mobileController.text = data['mobile'] ?? '';
         _addressController.text = data['address'] ?? '';
         _studentIdController.text = data['studentId'] ?? '';
         _courseYearController.text = data['courseYear'] ?? '';
+        _vehicleController.text = data['vehicle'] ?? '';
       });
     }
   }
@@ -67,7 +71,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
       return null;
     }
 
-    // ✅ Fixed file name = overwrites each time
     final filePath = '$folderName/$firebaseUid/profile.jpg';
 
     try {
@@ -76,17 +79,13 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
           .uploadBinary(
             filePath,
             fileBytes,
-            fileOptions: FileOptions(
-              upsert: true, // 👈 Must allow overwriting
-              contentType: contentType,
-            ),
+            fileOptions: FileOptions(upsert: true, contentType: contentType),
           );
 
       final url = Supabase.instance.client.storage
           .from('user-uploads')
           .getPublicUrl(filePath);
 
-      // 👇 Add timestamp query to "bust cache"
       return '$url?ts=${DateTime.now().millisecondsSinceEpoch}';
     } catch (e) {
       print("Upload error: $e");
@@ -103,6 +102,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
       'address': _addressController.text.trim(),
       'studentId': _studentIdController.text.trim(),
       'courseYear': _courseYearController.text.trim(),
+      'vehicle': _vehicleController.text.trim(),
     });
 
     setState(() => isEditing = false);
@@ -110,12 +110,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Profile updated')));
-  }
-
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
@@ -149,9 +143,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                             const Spacer(),
                             if (!isEditing)
                               TextButton(
-                                onPressed: () {
-                                  setState(() => isEditing = true);
-                                },
+                                onPressed:
+                                    () => setState(() => isEditing = true),
                                 child: const Text(
                                   'Edit',
                                   style: TextStyle(
@@ -196,7 +189,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                       ),
                                     ),
                                     const Text(
-                                      'Client',
+                                      'Rider',
                                       style: TextStyle(color: Colors.green),
                                     ),
                                     Text(
@@ -230,16 +223,14 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           color: Colors.black,
                                         ),
                                       ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Please enter Student ID';
-                                        }
-                                        return null;
-                                      },
+                                      validator:
+                                          (value) =>
+                                              value == null ||
+                                                      value.trim().isEmpty
+                                                  ? 'Please enter Student ID'
+                                                  : null,
                                     ),
                                     const SizedBox(height: 12),
-
                                     TextFormField(
                                       controller: _mobileController,
                                       readOnly: !isEditing,
@@ -252,16 +243,14 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           color: Colors.black,
                                         ),
                                       ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Please enter Contact Number';
-                                        }
-                                        return null;
-                                      },
+                                      validator:
+                                          (value) =>
+                                              value == null ||
+                                                      value.trim().isEmpty
+                                                  ? 'Please enter Contact Number'
+                                                  : null,
                                     ),
                                     const SizedBox(height: 12),
-
                                     TextFormField(
                                       controller: _courseYearController,
                                       readOnly: !isEditing,
@@ -274,16 +263,14 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           color: Colors.black,
                                         ),
                                       ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Please enter Course & Year';
-                                        }
-                                        return null;
-                                      },
+                                      validator:
+                                          (value) =>
+                                              value == null ||
+                                                      value.trim().isEmpty
+                                                  ? 'Please enter Course & Year'
+                                                  : null,
                                     ),
                                     const SizedBox(height: 12),
-
                                     TextFormField(
                                       controller: _addressController,
                                       readOnly: !isEditing,
@@ -296,153 +283,51 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           color: Colors.black,
                                         ),
                                       ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Please enter Address';
-                                        }
-                                        return null;
-                                      },
+                                      validator:
+                                          (value) =>
+                                              value == null ||
+                                                      value.trim().isEmpty
+                                                  ? 'Please enter Address'
+                                                  : null,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _vehicleController,
+                                      readOnly: !isEditing,
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Vehicle',
+                                        labelStyle: TextStyle(
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                      validator:
+                                          (value) =>
+                                              value == null ||
+                                                      value.trim().isEmpty
+                                                  ? 'Please enter Vehicle Info'
+                                                  : null,
                                     ),
                                     const SizedBox(height: 12),
 
-                                    const SizedBox(height: 10),
-                                    studentIdUrl.isEmpty
-                                        ? ElevatedButton(
-                                          onPressed:
-                                              isEditing
-                                                  ? () async {
-                                                    final url =
-                                                        await _uploadFile(
-                                                          'student_ids',
-                                                        );
-                                                    if (url != null) {
-                                                      final uid =
-                                                          FirebaseAuth
-                                                              .instance
-                                                              .currentUser
-                                                              ?.uid;
-                                                      await FirebaseFirestore
-                                                          .instance
-                                                          .collection('users')
-                                                          .doc(uid)
-                                                          .update({
-                                                            'studentIdUrl': url,
-                                                          });
-                                                      setState(
-                                                        () =>
-                                                            studentIdUrl = url,
-                                                      );
-                                                    }
-                                                  }
-                                                  : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.grey[300],
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 24,
-                                              vertical: 12,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Upload Student ID',
-                                            style: TextStyle(
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                        )
-                                        : Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const SizedBox(height: 8),
-                                            const Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                'Student ID Photo',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Center(
-                                              child: Stack(
-                                                alignment:
-                                                    Alignment.bottomRight,
-                                                children: [
-                                                  ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                    child: Image.network(
-                                                      studentIdUrl,
-                                                      width: 200,
-                                                      height: 150,
-                                                      fit: BoxFit.cover,
-                                                    ),
-                                                  ),
-                                                  if (isEditing)
-                                                    Positioned(
-                                                      bottom: 6,
-                                                      right: 6,
-                                                      child: GestureDetector(
-                                                        onTap: () async {
-                                                          final url =
-                                                              await _uploadFile(
-                                                                'student_ids',
-                                                              );
-                                                          if (url != null) {
-                                                            final uid =
-                                                                FirebaseAuth
-                                                                    .instance
-                                                                    .currentUser
-                                                                    ?.uid;
-                                                            await FirebaseFirestore
-                                                                .instance
-                                                                .collection(
-                                                                  'users',
-                                                                )
-                                                                .doc(uid)
-                                                                .update({
-                                                                  'studentIdUrl':
-                                                                      url,
-                                                                });
-                                                            setState(
-                                                              () =>
-                                                                  studentIdUrl =
-                                                                      url,
-                                                            );
-                                                          }
-                                                        },
-                                                        child:
-                                                            const CircleAvatar(
-                                                              backgroundColor:
-                                                                  Colors.white,
-                                                              radius: 18,
-                                                              child: Icon(
-                                                                Icons
-                                                                    .camera_alt,
-                                                                size: 18,
-                                                                color:
-                                                                    Colors
-                                                                        .black,
-                                                              ),
-                                                            ),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                    /// Student ID Upload section
+                                    _buildUploadSection(
+                                      'Student ID Photo',
+                                      studentIdUrl,
+                                      'student_ids',
+                                    ),
+                                    const SizedBox(height: 12),
 
-                                    const SizedBox(height: 10),
+                                    /// Driver's License Upload section
+                                    _buildUploadSection(
+                                      "Driver's License Photo",
+                                      driversLicenseUrl,
+                                      'drivers_license',
+                                    ),
+
+                                    const SizedBox(height: 20),
                                     if (isEditing)
                                       ElevatedButton(
                                         onPressed: () {
@@ -473,25 +358,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           ),
                                         ),
                                       ),
-
-                                    // Logout button
-                                    const SizedBox(height: 10),
-                                    OutlinedButton(
-                                      onPressed: _logout,
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 50,
-                                          vertical: 14,
-                                        ),
-                                        side: const BorderSide(
-                                          color: Colors.red,
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Logout',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -566,5 +432,117 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildUploadSection(String label, String imageUrl, String folderName) {
+    return imageUrl.isEmpty
+        ? ElevatedButton(
+          onPressed:
+              isEditing
+                  ? () async {
+                    final url = await _uploadFile(folderName);
+                    if (url != null) {
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(uid)
+                          .update({
+                            folderName == 'student_ids'
+                                    ? 'studentIdUrl'
+                                    : 'driversLicenseUrl':
+                                url,
+                          });
+                      setState(() {
+                        if (folderName == 'student_ids') {
+                          studentIdUrl = url;
+                        } else {
+                          driversLicenseUrl = url;
+                        }
+                      });
+                    }
+                  }
+                  : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey[300],
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+          child: Text(
+            'Upload $label',
+            style: const TextStyle(color: Colors.black87),
+          ),
+        )
+        : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      imageUrl,
+                      width: 200,
+                      height: 150,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  if (isEditing)
+                    Positioned(
+                      bottom: 6,
+                      right: 6,
+                      child: GestureDetector(
+                        onTap: () async {
+                          final url = await _uploadFile(folderName);
+                          if (url != null) {
+                            final uid = FirebaseAuth.instance.currentUser?.uid;
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(uid)
+                                .update({
+                                  folderName == 'student_ids'
+                                          ? 'studentIdUrl'
+                                          : 'driversLicenseUrl':
+                                      url,
+                                });
+                            setState(() {
+                              if (folderName == 'student_ids') {
+                                studentIdUrl = url;
+                              } else {
+                                driversLicenseUrl = url;
+                              }
+                            });
+                          }
+                        },
+                        child: const CircleAvatar(
+                          backgroundColor: Colors.white,
+                          radius: 18,
+                          child: Icon(
+                            Icons.camera_alt,
+                            size: 18,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
   }
 }

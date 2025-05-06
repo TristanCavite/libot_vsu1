@@ -4,6 +4,7 @@ import 'firebase_options.dart';
 import 'screens/welcome_screen.dart';
 import 'utils/lifecycle_watcher.dart'; // 👈 import it
 import 'package:supabase_flutter/supabase_flutter.dart';
+//import 'screens/temp_add_place_screen.dart';
 
 
 void main() async {
