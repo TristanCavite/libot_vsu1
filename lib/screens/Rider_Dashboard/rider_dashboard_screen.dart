@@ -75,52 +75,44 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     }
   }
 
-  // Sample passenger data
-  final passengerData = [
-    {
-      'name': 'Kevin Harts',
-      'pickup': 'DCST',
-      'destination': 'RDE Hall',
-      'avatarColor': Colors.brown,
-    },
-    {
-      'name': 'Tricia Martinez',
-      'pickup': 'DCST',
-      'destination': 'RDE Hall',
-      'avatarColor': Colors.red,
-    },
-    {
-      'name': 'Diane Robles',
-      'pickup': 'DCST',
-      'destination': 'RDE Hall',
-      'avatarColor': Colors.green,
-    },
-    {
-      'name': 'Michael Tarneo',
-      'pickup': 'DCST',
-      'destination': 'RDE Hall',
-      'avatarColor': Colors.purple,
-    },
-    {
-      'name': 'David Bombal',
-      'pickup': 'DCST',
-      'destination': 'RDE Hall',
-      'avatarColor': Colors.amber,
-    },
-    {
-      'name': 'Donnie Yen',
-      'pickup': 'DCST',
-      'destination': 'RDE Hall',
-      'avatarColor': Colors.blueGrey,
-    },
-  ];
 
-  void _fetchPassengerRequest() {
-    // Fetching passenger data logic here
-    setState(() {
-      passengerRequests = passengerData;
-    });
+
+ void _fetchPassengerRequest() async {
+  final rideRequestSnapshot = await FirebaseFirestore.instance
+      .collection('ride_requests')
+      .where('status', isEqualTo: 'pending')
+      .get();
+
+  final List<Map<String, dynamic>> fetchedRequests = [];
+
+  for (var doc in rideRequestSnapshot.docs) {
+    final data = doc.data();
+    final clientId = data['clientId']; // ✅ Correct field
+
+    // Get user info (name + profile picture)
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(clientId)
+        .get();
+    final userData = userDoc.data();
+
+    if (userData != null) {
+      fetchedRequests.add({
+        'name': userData['fullName'] ?? 'Unknown',
+        'pickup': data['pickupLocation'] ?? 'Unknown',
+        'destination': data['destination'] ?? 'Unknown',
+        'profileUrl': userData['profileUrl'] ?? '',
+        'avatarColor': Colors.blue,
+      });
+    }
   }
+
+  setState(() {
+    passengerRequests = fetchedRequests;
+  });
+}
+
+
 
   // Sample data for delivery requests
   final deliveryData = [
@@ -546,16 +538,22 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
           child: Row(
             children: [
               CircleAvatar(
-                backgroundColor: avatarColor,
-                radius: 20,
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+  radius: 20,
+  backgroundColor: avatarColor,
+  backgroundImage: request['profileUrl'] != ''
+      ? NetworkImage(request['profileUrl'])
+      : null,
+  child: request['profileUrl'] == ''
+      ? Text(
+          initials,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        )
+      : null,
+),
+
               const SizedBox(width: 16.0),
               Expanded(
                 child: Column(
