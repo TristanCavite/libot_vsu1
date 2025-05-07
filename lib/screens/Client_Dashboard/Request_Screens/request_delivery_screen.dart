@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // date formatting
+import 'package:intl/intl.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:libot_vsu1/utils/fare_calculator.dart';
+import 'package:libot_vsu1/widgets/osm_map.dart'; // 🗺️ OSM map widget
+import 'package:latlong2/latlong.dart'; // 🧭 For LatLng
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:libot_vsu1/screens/Client_Dashboard/client_dashboard_screen.dart';
+import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/pending_screen.dart'; // ✅ Import pending screen
 
 class RequestDeliveryScreen extends StatefulWidget {
   const RequestDeliveryScreen({super.key});
@@ -10,8 +18,17 @@ class RequestDeliveryScreen extends StatefulWidget {
 
 class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
   // Controllers for text fields
+  final TextEditingController _ordersController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
+  final TextEditingController _pickupController = TextEditingController();
+  final TextEditingController _destinationController = TextEditingController();
+  List<Map<String, dynamic>> _cachedPlacesList = [];
+  LatLng? _pickupPin;
+  LatLng? _destinationPin;
+
+  bool _placesLoaded = false;
+  String deliveryFee = '0';
 
   // Selected pickup option
   String _selectedPickupOption = 'Now';
@@ -23,10 +40,13 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
     if (_selectedPickupOption == 'Now') {
       _setCurrentDateTime();
     }
+
+    _loadPlacesOnce();
   }
 
   @override
   void dispose() {
+    _ordersController.dispose();
     _dateController.dispose();
     _timeController.dispose();
     super.dispose();
@@ -99,6 +119,63 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
     }
   }
 
+  // 🔍 Filter cached places based on input pattern
+  Future<List<String>> _fetchPlaceSuggestions(String pattern) async {
+    final lowerPattern = pattern.toLowerCase();
+    return _cachedPlacesList
+        .map((place) => place['name'] as String)
+        .where((name) => name.toLowerCase().contains(lowerPattern))
+        .toList();
+  }
+
+  // ✅ Load places from Firebase only once
+  Future<void> _loadPlacesOnce() async {
+    if (_placesLoaded) return;
+
+    final snapshot =
+        await FirebaseFirestore.instance.collection('places').get();
+
+    setState(() {
+      _cachedPlacesList =
+          snapshot.docs
+              .map(
+                (doc) => {
+                  'name': doc['name'],
+                  'campusCategory': doc['campusCategory'],
+                },
+              )
+              .toList();
+      _placesLoaded = true;
+    });
+  }
+
+  void _updateDeliveryFee() {
+    final pickup = _pickupController.text.trim();
+    final destination = _destinationController.text.trim();
+    final pickupCampusCategory = _findCampusCategory(pickup);
+    final destinationCampusCategory = _findCampusCategory(destination);
+
+    final calculated = calculateFare(
+      pickup,
+      destination,
+      pickupCampusCategory,
+      destinationCampusCategory,
+    );
+    setState(() {
+      deliveryFee = calculated;
+    });
+  }
+
+  String? _findCampusCategory(String placeName) {
+    final match = _cachedPlacesList.firstWhere(
+      (place) =>
+          (place['name'] as String).toLowerCase() == placeName.toLowerCase(),
+      orElse: () => {},
+    );
+    if (match.isEmpty) return null;
+    return match['campusCategory'] as String?;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,7 +185,8 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const TextField(
+            TextField(
+              controller: _ordersController,
               maxLines: 4,
               decoration: InputDecoration(
                 hintText: 'Enter your orders here...',
@@ -122,34 +200,81 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
             ),
             const SizedBox(height: 12),
 
-            //Matic ata ning destination ngari or need pani iclick pero rag dili ni text ari guro
-            const TextField(
-              decoration: InputDecoration(
-                prefixIcon: Icon(
-                  Icons.circle_rounded,
-                  color: Color(0xFF424242),
-                  size: 15,
-                ),
-                hintText: 'Destination',
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+            // ✅ Pickup using new TypeAheadField builder API
+            TypeAheadField<String>(
+              controller: _pickupController,
+              builder:
+                  (context, controller, focusNode) => TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(
+                        Icons.location_on_outlined,
+                        color: Color(0xFF424242),
+                      ),
+                      hintText: 'Pickup Location',
+                      filled: true,
+                      fillColor: Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+              suggestionsCallback: _fetchPlaceSuggestions,
+              itemBuilder:
+                  (context, suggestion) => ListTile(title: Text(suggestion)),
+              onSelected: (suggestion) {
+                _pickupController.text = suggestion;
+                _updateDeliveryFee(); // 💸 Update fee on selection
+              },
             ),
+
             const SizedBox(height: 12),
 
-            // Need logic para automatic na ma fill and exact fee
-            const TextField(
+            // ✅ Destination using new TypeAheadField builder API
+            TypeAheadField<String>(
+              controller: _destinationController,
+              builder:
+                  (context, controller, focusNode) => TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(
+                        Icons.circle_rounded,
+                        color: Color(0xFF424242),
+                        size: 15,
+                      ),
+                      hintText: 'Destination',
+                      filled: true,
+                      fillColor: Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+              suggestionsCallback: _fetchPlaceSuggestions,
+              itemBuilder:
+                  (context, suggestion) => ListTile(title: Text(suggestion)),
+              onSelected: (suggestion) {
+                _destinationController.text = suggestion;
+                _updateDeliveryFee(); // 💸 Update fee on selection
+              },
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
               enabled: false,
-              decoration: InputDecoration(
+              controller: TextEditingController(
+                text: 'Delivery fee: ₱$deliveryFee',
+              ),
+              decoration: const InputDecoration(
                 prefixIcon: Icon(
                   Icons.attach_money_outlined,
                   color: Colors.black,
                 ),
-                hintText: 'Delivery fee: 0',
                 filled: true,
                 fillColor: Color(0xFFF5F5F5),
                 border: OutlineInputBorder(
@@ -161,17 +286,27 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
 
             // Insert mapa ari
             const SizedBox(height: 12),
+            // 🌍 Map with pin selection (replacing static image)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'assets/images/map_placeholder.png',
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
+              child: SizedBox(
+                height: 200,
+                child: OsmMap(
+                  onPickupChanged: (LatLng pickupLocation) {
+                    setState(() {
+                      _pickupPin = pickupLocation;
+                    });
+                  },
+                  onDestinationChanged: (LatLng destinationLocation) {
+                    setState(() {
+                      _destinationPin = destinationLocation;
+                    });
+                  },
+                ),
               ),
             ),
 
-            // Pickup time
+            // 🕒 Pickup Time
             const SizedBox(height: 16),
             const Text(
               'Pickup Time',
@@ -185,7 +320,7 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                     onTap: () {
                       setState(() {
                         _selectedPickupOption = 'Now';
-                        _setCurrentDateTime();
+                        _setCurrentDateTime(); // ⏱️ Sets the current time automatically
                       });
                     },
                     child: Container(
@@ -230,7 +365,7 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                     onPressed: () {
                       setState(() {
                         _selectedPickupOption = 'Schedule';
-                        _clearDateTime();
+                        _clearDateTime(); // 🧹 Clears default time when scheduling
                       });
                     },
                     child: const Text('Schedule'),
@@ -238,38 +373,42 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _dateController,
-              readOnly: true,
-              onTap: () => _selectDate(context),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.calendar_today),
-                hintText: 'Date',
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide.none,
+
+            // ✅ Conditionally show Date & Time fields only if “Schedule” is selected
+            if (_selectedPickupOption == 'Schedule') ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _dateController,
+                readOnly: true,
+                onTap: () => _selectDate(context),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.calendar_today),
+                  hintText: 'Date',
+                  filled: true,
+                  fillColor: Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _timeController,
-              readOnly: true,
-              onTap: () => _selectTime(context),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.access_time),
-                hintText: 'Time',
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                  borderSide: BorderSide.none,
+              const SizedBox(height: 12),
+              TextField(
+                controller: _timeController,
+                readOnly: true,
+                onTap: () => _selectTime(context),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.access_time),
+                  hintText: 'Time',
+                  filled: true,
+                  fillColor: Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
+            ],
 
             //Payment method
             const SizedBox(height: 16),
@@ -310,10 +449,74 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () {
-                  // Handle delivery request confirmation here
-                  // Add logic to send the request
+                onPressed: () async {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('User not logged in')),
+                    );
+                    return;
+                  }
+
+                  final requestData = {
+                    'clientId': user.uid,
+                    'orders': _ordersController.text.trim(),
+                    'pickupLocation': _pickupController.text,
+                    'destination': _destinationController.text,
+                    'deliveryFee': deliveryFee,
+                    'pickupTime':
+                        _selectedPickupOption == 'Now'
+                            ? DateFormat(
+                              'MMM dd, yyyy, hh:mm a',
+                            ).format(DateTime.now())
+                            : '${_dateController.text}, ${_timeController.text}',
+                    'pickupPin': {
+                      'lat': _pickupPin?.latitude,
+                      'lng': _pickupPin?.longitude,
+                    },
+                    'destinationPin': {
+                      'lat': _destinationPin?.latitude,
+                      'lng': _destinationPin?.longitude,
+                    },
+                    'paymentMethod':
+                        'Cash', // Update if you store the selected method
+                    'status': 'pending',
+                    'timestamp': FieldValue.serverTimestamp(),
+                  };
+
+                  try {
+                    final docRef = await FirebaseFirestore.instance
+                        .collection('delivery_requests')
+                        .add(requestData);
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .update({'pendingRequestId': docRef.id});
+                        
+                    if (!mounted) return;
+                    // ✅ Don't pop, just inject directly
+                    final dashboardState =
+                        context
+                            .findAncestorStateOfType<
+                              ClientDashboardScreenState
+                            >();
+                    if (dashboardState != null) {
+                      dashboardState.setState(() {
+                        dashboardState.currentContent = PendingScreen(
+                          requestId: docRef.id,
+                        );
+                        dashboardState.requestType = 'Pending';
+                        dashboardState.showRequestScreen = true;
+                      });
+                    }
+                  } catch (e) {
+                    print('[ERROR] $e');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to send request: $e')),
+                    );
+                  }
                 },
+
                 child: const Text(
                   'Confirm Delivery Request',
                   style: TextStyle(fontSize: 16, color: Colors.white),

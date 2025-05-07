@@ -4,26 +4,32 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 
 class OsmMap extends StatefulWidget {
-  final void Function(LatLng)? onLocationChanged; // 🧭 Step 3A: callback
+  final void Function(LatLng)? onPickupChanged;
+  final void Function(LatLng)? onDestinationChanged;
 
-  const OsmMap({super.key, this.onLocationChanged}); // 💡 accept from parent
+  const OsmMap({
+    super.key,
+    this.onPickupChanged,
+    this.onDestinationChanged,
+  });
 
   @override
   State<OsmMap> createState() => _OsmMapState();
 }
 
 class _OsmMapState extends State<OsmMap> {
-  LatLng? currentPosition;  // 📍 User’s current location
-  LatLng? markerPosition;   // 📌 Movable pin
-  final MapController mapController = MapController(); // 🗺️ Controls the map
+  LatLng? currentPosition;
+  LatLng? pickupMarker;
+  LatLng? destinationMarker;
+  String activeMarker = 'pickup'; // 👈 current mode
+  final MapController mapController = MapController();
 
   @override
   void initState() {
     super.initState();
-    _fetchLocation(); // 🔁 Get user location
+    _fetchLocation();
   }
 
-  // 🛰️ Step 3A: Fetch and send user location
   Future<void> _fetchLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
@@ -31,7 +37,8 @@ class _OsmMapState extends State<OsmMap> {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) return;
     }
 
     Position pos = await Geolocator.getCurrentPosition();
@@ -39,17 +46,14 @@ class _OsmMapState extends State<OsmMap> {
 
     setState(() {
       currentPosition = gps;
-      markerPosition = gps;
+      pickupMarker = gps; // ✅ Default: set pickup at current
     });
 
-    // 🚀 Move camera
-    Future.delayed(const Duration(milliseconds: 300), () {
-      mapController.move(gps, 17);
-    });
+    mapController.move(gps, 17);
 
-    // 🔁 Notify parent widget about initial marker
-    if (widget.onLocationChanged != null) {
-      widget.onLocationChanged!(gps);
+    // Notify initial pickup
+    if (widget.onPickupChanged != null) {
+      widget.onPickupChanged!(gps);
     }
   }
 
@@ -64,11 +68,20 @@ class _OsmMapState extends State<OsmMap> {
                 options: MapOptions(
                   initialCenter: currentPosition!,
                   initialZoom: 17,
-                  onTap: (tapPos, point) {
-                    setState(() => markerPosition = point); // ✅ Move pin
-                    if (widget.onLocationChanged != null) {
-                      widget.onLocationChanged!(point); // 🔁 Update parent
-                    }
+                  onTap: (_, point) {
+                    setState(() {
+                      if (activeMarker == 'pickup') {
+                        pickupMarker = point;
+                        if (widget.onPickupChanged != null) {
+                          widget.onPickupChanged!(point);
+                        }
+                      } else {
+                        destinationMarker = point;
+                        if (widget.onDestinationChanged != null) {
+                          widget.onDestinationChanged!(point);
+                        }
+                      }
+                    });
                   },
                 ),
                 children: [
@@ -76,24 +89,33 @@ class _OsmMapState extends State<OsmMap> {
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.example.libot_vsu1',
                   ),
-                  if (markerPosition != null)
-                    MarkerLayer(
-                      markers: [
+                  MarkerLayer(
+                    markers: [
+                      if (pickupMarker != null)
                         Marker(
-                          point: markerPosition!,
-                          width: 60,
-                          height: 60,
-                          child: const Icon(Icons.location_pin, color: Colors.red, size: 40),
+                          point: pickupMarker!,
+                          width: 50,
+                          height: 50,
+                          child: const Icon(Icons.location_on,
+                              color: Colors.green, size: 40),
                         ),
-                      ],
-                    ),
+                      if (destinationMarker != null)
+                        Marker(
+                          point: destinationMarker!,
+                          width: 50,
+                          height: 50,
+                          child: const Icon(Icons.location_on,
+                              color: Colors.red, size: 40),
+                        ),
+                    ],
+                  ),
                 ],
               ),
 
-              // 👁️ Recenter to current GPS
+              // 🛰️ Recenter to current GPS
               Positioned(
-                bottom: 10,
-                left: 10,
+                bottom: 12,
+                left: 12,
                 child: FloatingActionButton.small(
                   heroTag: 'recenter',
                   backgroundColor: Colors.white,
@@ -102,16 +124,45 @@ class _OsmMapState extends State<OsmMap> {
                     if (currentPosition != null) {
                       mapController.move(currentPosition!, 17);
                       setState(() {
-                        markerPosition = currentPosition;
+                        pickupMarker = currentPosition!;
                       });
-
-                      // 🛰️ Send back updated current location
-                      if (widget.onLocationChanged != null) {
-                        widget.onLocationChanged!(currentPosition!);
+                      if (widget.onPickupChanged != null) {
+                        widget.onPickupChanged!(currentPosition!);
                       }
                     }
                   },
                   child: const Icon(Icons.my_location, color: Colors.black),
+                ),
+              ),
+
+              // 🟢 Toggle buttons
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Column(
+                  children: [
+                    FloatingActionButton.small(
+                      heroTag: 'pickup',
+                      backgroundColor: activeMarker == 'pickup'
+                          ? Colors.green
+                          : Colors.grey[300],
+                      onPressed: () {
+                        setState(() => activeMarker = 'pickup');
+                      },
+                      child: const Icon(Icons.place, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: 'destination',
+                      backgroundColor: activeMarker == 'destination'
+                          ? Colors.red
+                          : Colors.grey[300],
+                      onPressed: () {
+                        setState(() => activeMarker = 'destination');
+                      },
+                      child: const Icon(Icons.flag, color: Colors.white),
+                    ),
+                  ],
                 ),
               ),
             ],
