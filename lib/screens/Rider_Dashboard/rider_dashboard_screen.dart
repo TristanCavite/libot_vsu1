@@ -21,10 +21,10 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
   String selectedTab = 'Ride';
   String profileUrl = '';
 
-  // Add state variable to track current view
-  bool showRequestScreen = false;
-  Widget? currentContent;
-  String requestType = '';
+  // --- State variables for Confirmation Screen ---
+  bool _isShowingConfirmationScreen = false;
+  Map<String, dynamic>? _selectedRequestData;
+  String? _selectedRequestType;
 
   List<Map<String, dynamic>> availableDrivers = [];
   List<String> savedPlaces = [];
@@ -41,6 +41,37 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     _setGreeting();
     _fetchUserProfile();
     _loadRequestsData(); // Combined loading function
+
+    // Add listener to reset confirmation screen state if user navigates away from Home tab
+    _tabController.addListener(() {
+      if (_tabController.index != 0 && _isShowingConfirmationScreen) {
+        setState(() {
+          _isShowingConfirmationScreen = false;
+          _selectedRequestData = null;
+          _selectedRequestType = null;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabChange);
+    _tabController.dispose();
+    destinationController.dispose();
+    super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (_tabController.index != 0 && _isShowingConfirmationScreen) {
+      if (mounted) {
+        setState(() {
+          _isShowingConfirmationScreen = false;
+          _selectedRequestData = null;
+          _selectedRequestType = null;
+        });
+      }
+    }
   }
 
   void _loadRequestsData() {
@@ -63,154 +94,148 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final doc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    final data = doc.data();
+    try {
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final data = doc.data();
 
-    if (data != null) {
-      setState(() {
-        fullName = data['fullName'] ?? 'User';
-        profileUrl = data['profileUrl'] ?? ''; // ✅ Get profile picture
-      });
+      if (mounted && data != null) {
+        setState(() {
+          fullName = data['fullName'] ?? 'User';
+          profileUrl = data['profileUrl'] ?? '';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        print("Error fetching user profile: $e");
+      }
     }
   }
 
+  void _fetchPassengerRequest() async {
+    try {
+      final rideRequestSnapshot =
+          await FirebaseFirestore.instance
+              .collection('ride_requests')
+              .where('status', isEqualTo: 'pending')
+              .get();
 
+      final List<Map<String, dynamic>> fetchedRequests = [];
 
- void _fetchPassengerRequest() async {
-  final rideRequestSnapshot = await FirebaseFirestore.instance
-      .collection('ride_requests')
-      .where('status', isEqualTo: 'pending')
-      .get();
+      // Using Future.wait for potentially faster user data fetching if many requests
+      List<Future<void>> userFetchFutures = [];
 
-  final List<Map<String, dynamic>> fetchedRequests = [];
+      for (var doc in rideRequestSnapshot.docs) {
+        final data = doc.data();
+        final clientId = data['clientId'];
 
-  for (var doc in rideRequestSnapshot.docs) {
-    final data = doc.data();
-    final clientId = data['clientId']; // ✅ Correct field
+        if (clientId != null) {
+          // Add a future to fetch user data and add to the list
+          userFetchFutures.add(
+            FirebaseFirestore.instance
+                .collection('users')
+                .doc(clientId)
+                .get()
+                .then((userDoc) {
+                  final userData = userDoc.data();
+                  if (userData != null) {
+                    fetchedRequests.add({
+                      'id': doc.id,
+                      'name': userData['fullName'] ?? 'Unknown',
+                      'pickup': data['pickupLocation'] ?? 'Unknown',
+                      'destination': data['destination'] ?? 'Unknown',
+                      'profileUrl': userData['profileUrl'] ?? '',
+                      'avatarColor': Colors.blue,
+                    });
+                  }
+                })
+                .catchError((e) {
+                  print("Error fetching user data for client $clientId: $e");
+                }),
+          );
+        }
+      }
 
-    // Get user info (name + profile picture)
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(clientId)
-        .get();
-    final userData = userDoc.data();
+      await Future.wait(userFetchFutures);
 
-    if (userData != null) {
-      fetchedRequests.add({
-        'name': userData['fullName'] ?? 'Unknown',
-        'pickup': data['pickupLocation'] ?? 'Unknown',
-        'destination': data['destination'] ?? 'Unknown',
-        'profileUrl': userData['profileUrl'] ?? '',
-        'avatarColor': Colors.blue,
-      });
+      if (mounted) {
+        // Check again if widget is still mounted
+        setState(() {
+          passengerRequests = fetchedRequests;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        print("Error fetching passenger requests: $e");
+      }
     }
   }
 
-  setState(() {
-    passengerRequests = fetchedRequests;
-  });
-}
-
-
-
-  // Sample data for delivery requests
+  // Sample data for delivery requests - replace with Firestore fetch
   final deliveryData = [
     {
+      'id': 'delivery1', // Add an ID for potential updates
       'name': 'John Doe',
       'item': 'Book',
       'destination': 'Library',
+      'profileUrl': '',
       'avatarColor': Colors.blue,
     },
     {
+      'id': 'delivery2',
       'name': 'Jane Smith',
       'item': 'Folder',
       'destination': 'DLABS',
+      'profileUrl': 'https://via.placeholder.com/150', // Example with picture
       'avatarColor': Colors.orange,
     },
   ];
 
   void _fetchDeliveryRequest() {
     // Fetching delivery data logic here
-    setState(() {
-      deliveryRequests = deliveryData;
-    });
+    if (mounted) {
+      setState(() {
+        deliveryRequests = deliveryData; // Using sample data for now
+      });
+    }
   }
 
-  void _showConfirmationDialog(String type, Map<String, dynamic> request) {
-    String name = request['name'] ?? 'Unknown';
+  // --- Function to handle accepting a request ---
+  void _acceptRequest(String type, Map<String, dynamic> request) {
+    // TODO: Implement the actual logic to update Firestore status, assign rider, etc.
 
-    String contentText;
-    if (type == 'passenger') {
-      String pickup = request['pickup'] ?? 'Unknown';
-      String destination = request['destination'] ?? 'Unknown';
-      contentText =
-          "Do you want to accept this passenger request from $name?\n\nRoute: $pickup → $destination";
-    } else if (type == 'delivery') {
-      String item = request['item'] ?? 'Item';
-      String destination = request['destination'] ?? 'Unknown';
-      contentText =
-          "Do you want to accept this delivery request from $name?\n\n Item: $item \n To be delivered at $destination";
-    } else {
-      contentText = "Do you want to accept the request from $name?";
-    }
+    String name = request['name'] ?? 'Someone';
+    String requestId = request['id'];
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            "Confirm Request",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF00843D),
-            ),
-          ),
-          content: Text(contentText),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                "Cancel",
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00A651),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                // TODO: Handle accept logic here
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('You accepted the request from $name.'),
-                  ),
-                );
-              },
-              child: const Text(
-                "Accept",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    // Example: Show snackbar feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('You accepted the request from $name.'),
+        duration: const Duration(seconds: 2),
+      ),
     );
+    // -- End of example --
+
+    if (mounted) {
+      setState(() {
+        _isShowingConfirmationScreen = false;
+        if (type == 'passenger') {
+          passengerRequests.removeWhere((r) => r['id'] == requestId);
+        } else {
+          deliveryRequests.removeWhere((r) => r['id'] == requestId);
+        }
+        // Reset selection
+        _selectedRequestData = null;
+        _selectedRequestType = null;
+
+        _loadRequestsData();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // --- Main Scaffold and Top Bar  ---
     return Scaffold(
       backgroundColor: const Color(0xFF00843D),
       body: SafeArea(
@@ -245,7 +270,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                               : null,
                     ),
                   ),
-
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -330,7 +354,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
               ),
             ),
 
-            // Main content area
+            // --- Main content area ---
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(top: 40),
@@ -348,6 +372,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                   ),
                   child: Column(
                     children: [
+                      // --- TabBar ---
                       TabBar(
                         controller: _tabController,
                         labelColor: const Color(0xFF00843D),
@@ -360,11 +385,14 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                         ],
                       ),
                       const SizedBox(height: 16),
+                      // --- TabBarView ---
                       Expanded(
                         child: TabBarView(
                           controller: _tabController,
                           children: [
+                            // --- Home Tab Content ---
                             _buildHomeTabContent(),
+                            // --- Other Tabs ---
                             const RiderActivityScreen(),
                             const RiderMessageScreen(),
                           ],
@@ -381,85 +409,355 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     );
   }
 
+  // --- Build content for the Home tab ---
   Widget _buildHomeTabContent() {
-    return Container(
-      color: Colors.white, // Ensure a base color
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Ride/Delivery toggle buttons
-          Row(
+    // If _isShowingConfirmationScreen is true, build the confirmation view
+    if (_isShowingConfirmationScreen &&
+        _selectedRequestData != null &&
+        _selectedRequestType != null) {
+      return _buildConfirmationScreen(); // Call the new function
+    }
+
+    // --- Otherwise, build the original Home tab content ---
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Ride/Delivery toggle buttons
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  if (selectedTab != 'Ride') {
+                    setState(() => selectedTab = 'Ride');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      selectedTab == 'Ride'
+                          ? const Color(0xFF00A651)
+                          : Colors.grey.shade200,
+                  foregroundColor:
+                      selectedTab == 'Ride' ? Colors.white : Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Ride'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  if (selectedTab != 'Delivery') {
+                    setState(() => selectedTab = 'Delivery');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      selectedTab == 'Delivery'
+                          ? const Color(0xFF00A651)
+                          : Colors.grey.shade200,
+                  foregroundColor:
+                      selectedTab == 'Delivery' ? Colors.white : Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Delivery'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Title section
+        Text(
+          selectedTab == 'Ride'
+              ? 'Available Passengers Requests'
+              : 'Available Delivery Requests',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+
+        Expanded(
+          child:
+              selectedTab == 'Ride'
+                  ? _buildPassengerList()
+                  : _buildDeliveryList(),
+        ),
+      ],
+    );
+  }
+
+  // --- Confirmation Screen Widget ---
+  Widget _buildConfirmationScreen() {
+    final request = _selectedRequestData!;
+    final type = _selectedRequestType!;
+
+    // Determine details based on type
+    String name = request['name'] ?? 'Unknown';
+    String profilePicUrl = request['profileUrl'] ?? '';
+    Color avatarColor =
+        request['avatarColor'] ?? Colors.grey; // Use stored color or default
+
+    String initials =
+        name.isNotEmpty
+            ? name
+                .split(' ')
+                .where((part) => part.isNotEmpty)
+                .map((part) => part[0])
+                .take(2)
+                .join()
+                .toUpperCase()
+            : '?';
+
+    String detailsTitle =
+        type == 'passenger'
+            ? 'Accept Passenger Request '
+            : 'Accept Delivery Request ';
+
+    String detailLine1 = '';
+    String detailLine2 = '';
+    IconData icon1 = Icons.route;
+    IconData icon2 = Icons.pin_drop_outlined;
+
+    if (type == 'passenger') {
+      detailLine1 = "From: ${request['pickup'] ?? 'Unknown'}";
+      detailLine2 = "To: ${request['destination'] ?? 'Unknown'}";
+      icon1 = Icons.location_on_outlined;
+      icon2 = Icons.flag_outlined;
+    } else if (type == 'delivery') {
+      detailLine1 = "Item: ${request['item'] ?? 'Unknown'}";
+      detailLine2 = "Deliver To: ${request['destination'] ?? 'Unknown'}";
+      icon1 = Icons.inventory_2_outlined;
+      icon2 = Icons.location_on_outlined;
+    }
+
+    return Column(
+      children: [
+        // --- Back button and Title Row ---
+        Row(
+          children: [
+            IconButton(
+              onPressed: () {
+                // Go back to the list view
+                setState(() {
+                  _isShowingConfirmationScreen = false;
+                  _selectedRequestData = null;
+                  _selectedRequestType = null;
+                });
+              },
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0x1A00843D),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Color(0xFF00843D),
+                  size: 24,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // --- Title Text ---
+            Expanded(
+              child: Text(
+                detailsTitle,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // --- Request Details Section ---
+        Expanded(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ---  Label ---
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 6.0),
+                    child: Text(
+                      "Requester:",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                  // --- Requester Info Card ---
+                  Card(
+                    color: Colors.grey[100],
+                    elevation: 1,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: avatarColor,
+                            backgroundImage:
+                                profilePicUrl.isNotEmpty
+                                    ? NetworkImage(profilePicUrl)
+                                    : null,
+                            child:
+                                profilePicUrl.isEmpty
+                                    ? Text(
+                                      initials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    )
+                                    : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ---  Label ---
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 6.0),
+                    child: Text(
+                      "Details:",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+
+                  // --- Specific Request Details ---
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(icon1, color: Colors.grey[700], size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            detailLine1,
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(icon2, color: Colors.grey[700], size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            detailLine2,
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Add more details as needed
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // --- Confirmation Buttons ---
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+          child: Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () => setState(() => selectedTab = 'Ride'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        selectedTab == 'Ride'
-                            ? const Color(0xFF00A651)
-                            : Colors.grey.shade200,
-                    foregroundColor:
-                        selectedTab == 'Ride' ? Colors.white : Colors.black,
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isShowingConfirmationScreen = false;
+                      _selectedRequestData = null;
+                      _selectedRequestType = null;
+                    });
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Ride'),
+                  child: const Text(
+                    "Decline",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => setState(() => selectedTab = 'Delivery'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        selectedTab == 'Delivery'
-                            ? const Color(0xFF00A651)
-                            : Colors.grey.shade200,
-                    foregroundColor:
-                        selectedTab == 'Delivery' ? Colors.white : Colors.black,
+                    backgroundColor: const Color(0xFF00A651),
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Delivery'),
+                  onPressed: () {
+                    _acceptRequest(type, request);
+                  },
+                  child: const Text(
+                    "Accept",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // Title section
-          Text(
-            selectedTab == 'Ride'
-                ? 'Available Passengers Requests'
-                : 'Available Delivery Requests',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Request List - Key fix: wrapping in Expanded
-          Expanded(
-            child:
-                selectedTab == 'Ride'
-                    ? _buildPassengerList()
-                    : _buildDeliveryList(),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // Passenger List Builder
+  // --- Passenger List Builder  ---
   Widget _buildPassengerList() {
-    // If list is empty, show a message
     if (passengerRequests.isEmpty) {
       return const Center(child: Text('No passenger requests available'));
     }
-
-    // If list has data
     return ListView.builder(
       shrinkWrap: true,
       physics: const AlwaysScrollableScrollPhysics(),
@@ -471,14 +769,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     );
   }
 
-  // Delivery List Builder
+  // --- Delivery List Builder ---
   Widget _buildDeliveryList() {
-    //If list is empty, show a message
     if (deliveryRequests.isEmpty) {
       return const Center(child: Text('No delivery requests available'));
     }
-
-    //If list has data
     return ListView.builder(
       shrinkWrap: true,
       physics: const AlwaysScrollableScrollPhysics(),
@@ -490,43 +785,51 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     );
   }
 
+  // --- Request Card Widget ---
   Widget _buildRequestCard({
-    required String type, // "passenger" or "delivery"
+    required String type,
     required Map<String, dynamic> request,
   }) {
-    // Common fields
-    final String name = request['name'];
+    final String name =
+        request['name'] ?? 'Unknown'; // Handle potential null name
     final Color avatarColor = request['avatarColor'] ?? Colors.grey;
+    final String profilePicUrl = request['profileUrl'] ?? '';
 
-    // Get initials from name
-    // Placeholder since wala pay picture
     String initials =
-        name
-            .split(' ')
-            .where((part) => part.isNotEmpty)
-            .map((part) => part[0])
-            .take(2)
-            .join();
+        name.isNotEmpty
+            ? name
+                .split(' ')
+                .where((part) => part.isNotEmpty)
+                .map((part) => part[0])
+                .take(2)
+                .join()
+                .toUpperCase()
+            : '?';
 
-    // Dynamic fields
-    String titleText = '';
+    String titleText = name;
     String subtitleText = '';
 
     if (type == 'passenger') {
       final String pickup = request['pickup'] ?? 'Unknown';
       final String destination = request['destination'] ?? 'Unknown';
-      titleText = name;
       subtitleText = '$pickup → $destination';
-      //
     } else if (type == 'delivery') {
       final String item = request['item'] ?? 'Item';
       final String destination = request['destination'] ?? 'Unknown';
-      titleText = name;
       subtitleText = '$item to be delivered at $destination';
     }
 
     return InkWell(
-      onTap: () => _showConfirmationDialog(type, request),
+      // --- UPDATED onTap: Show Confirmation Screen ---
+      onTap: () {
+        setState(() {
+          _selectedRequestData = request;
+          _selectedRequestType = type;
+          _isShowingConfirmationScreen =
+              true; // Set flag to show the confirmation screen
+        });
+      },
+      // --- End UPDATED onTap ---
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
@@ -538,22 +841,23 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
           child: Row(
             children: [
               CircleAvatar(
-  radius: 20,
-  backgroundColor: avatarColor,
-  backgroundImage: request['profileUrl'] != ''
-      ? NetworkImage(request['profileUrl'])
-      : null,
-  child: request['profileUrl'] == ''
-      ? Text(
-          initials,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        )
-      : null,
-),
-
+                radius: 20,
+                backgroundColor: avatarColor,
+                backgroundImage:
+                    profilePicUrl.isNotEmpty
+                        ? NetworkImage(profilePicUrl)
+                        : null,
+                child:
+                    profilePicUrl.isEmpty
+                        ? Text(
+                          initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                        : null,
+              ),
               const SizedBox(width: 16.0),
               Expanded(
                 child: Column(
@@ -565,15 +869,20 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                         fontWeight: FontWeight.bold,
                         fontSize: 16.0,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4.0),
                     Text(
                       subtitleText,
                       style: TextStyle(color: Colors.grey[600], fontSize: 14.0),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
                     ),
                   ],
                 ),
               ),
+
+              const Icon(Icons.chevron_right, color: Colors.grey),
             ],
           ),
         ),
