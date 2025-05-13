@@ -4,8 +4,13 @@ import 'firebase_options.dart';
 import 'screens/welcome_screen.dart';
 import 'utils/lifecycle_watcher.dart'; // 👈 import it
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 //import 'screens/temp_add_place_screen.dart';
 
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +21,28 @@ void main() async {
     url: 'https://ehokbzfksrznyhfbdwjy.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVob2tiemZrc3J6bnloZmJkd2p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3MzE3MTYsImV4cCI6MjA2MDMwNzcxNn0.2YaIQLq7O4V0PsDgoRyLn8Yt7xyuGBMUO8TkTJ1fIrQ',
+  );
+
+   
+  // ✅ Request notification permission (Android 13+)
+  if (await Permission.notification.isDenied ||
+      await Permission.notification.isPermanentlyDenied) {
+    await Permission.notification.request();
+  }
+
+  // ✅ Initialize local notifications
+  const AndroidInitializationSettings androidSettings =
+      AndroidInitializationSettings('ic_stat_logo');
+
+  const InitializationSettings initSettings = InitializationSettings(
+    android: androidSettings,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      print('Notification tapped: ${response.payload}');
+    },
   );
 
   runApp(const LifecycleWatcher(child: LibotVSUApp()));

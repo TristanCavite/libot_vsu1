@@ -441,6 +441,23 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                     return;
                   }
 
+                  // ✅ START: Check for required fields
+                  if (_pickupLocationController.text.trim().isEmpty ||
+                      _destinationController.text.trim().isEmpty ||
+                      _pickupPin == null ||
+                      _destinationPin == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Please set pickup, destination, and map pins.',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  // ✅ END: Check for required fields
+
                   final requestData = {
                     'clientId': user.uid,
                     'pickupLocation': _pickupLocationController.text,
@@ -474,7 +491,6 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
 
                     if (!mounted) return;
 
-                    // ✅ Don't pop, just inject directly
                     final dashboardState =
                         context
                             .findAncestorStateOfType<

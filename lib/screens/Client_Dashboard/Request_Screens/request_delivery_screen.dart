@@ -458,6 +458,23 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                     return;
                   }
 
+                  // ✅ VALIDATION CHECK (Added here)
+                  if (_ordersController.text.trim().isEmpty ||
+                      _pickupController.text.trim().isEmpty ||
+                      _destinationController.text.trim().isEmpty ||
+                      _pickupPin == null ||
+                      _destinationPin == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Please complete all fields: orders, locations, and map pins.',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
                   final requestData = {
                     'clientId': user.uid,
                     'orders': _ordersController.text.trim(),
@@ -478,8 +495,7 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                       'lat': _destinationPin?.latitude,
                       'lng': _destinationPin?.longitude,
                     },
-                    'paymentMethod':
-                        'Cash', // Update if you store the selected method
+                    'paymentMethod': 'Cash',
                     'status': 'pending',
                     'timestamp': FieldValue.serverTimestamp(),
                   };
@@ -492,9 +508,9 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                         .collection('users')
                         .doc(user.uid)
                         .update({'pendingRequestId': docRef.id});
-                        
+
                     if (!mounted) return;
-                    // ✅ Don't pop, just inject directly
+
                     final dashboardState =
                         context
                             .findAncestorStateOfType<
