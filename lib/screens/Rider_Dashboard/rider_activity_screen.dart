@@ -80,7 +80,8 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
                   Text('Request Type: ${request['requestType']}'),
                   Text('Pickup: ${request['pickup']}'),
                   Text('Destination: ${request['destination']}'),
-                  Text('Item: ${request['item']}'),
+                  if (request['requestType'] == 'Delivery')
+                    Text('Item: ${request['item']}'),
                   Text('Fare: \$${request['fare']}'),
                   Text(
                     'Status: Pending',
@@ -149,7 +150,8 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
                   Text('Request Type: ${request['requestType']}'),
                   Text('Pickup: ${request['pickup']}'),
                   Text('Destination: ${request['destination']}'),
-                  Text('Item: ${request['item']}'),
+                  if (request['requestType'] == 'Delivery')
+                    Text('Item: ${request['item']}'),
                   Text('Fare: \$${request['fare']}'),
                   Text(
                     'Status: Completed',
@@ -244,7 +246,7 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
     );
   }
 
