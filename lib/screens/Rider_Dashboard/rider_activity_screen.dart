@@ -12,6 +12,7 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
   List<Map<String, dynamic>> _acceptedRequests = [];
   List<Map<String, dynamic>> _completedRequests = [];
 
+  // Sample data for accepted requests.
   List<Map<String, dynamic>> _fetchAcceptedRequestsFromSource() {
     return [
       {
@@ -67,6 +68,7 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
     ];
   }
 
+  // Sample data for completed requests. In a real application, this would be fetched from the database.
   List<Map<String, dynamic>> _fetchCompletedRequestsFromSource() {
     return [];
   }
@@ -244,8 +246,28 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
                     value:
                         'Php ${request['fare']?.toStringAsFixed(2) ?? 'N/A'}',
                   ),
-
                   const SizedBox(height: 24),
+
+                  // --- CHAT NOW BUTTON ---
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Chat Now'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () {
+                      _chat(); // Chat functionality
+                    },
+                  ),
+
+                  // --- END OF CHAT NOW BUTTON ---
+                  const SizedBox(height: 10),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green.shade600,
@@ -441,6 +463,14 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
       _completedRequests.removeWhere((r) => r['id'] == request['id']);
     });
     Navigator.pop(context);
+  }
+
+  void _chat() {
+    // Placeholder for chat functionality
+    // Edit this method to implement the chat feature.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Chat feature is not implemented yet.')),
+    );
   }
 
   // --- Build Method ---
