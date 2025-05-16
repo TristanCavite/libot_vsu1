@@ -498,6 +498,12 @@ class _RequestDeliveryScreenState extends State<RequestDeliveryScreen> {
                     'paymentMethod': 'Cash',
                     'status': 'pending',
                     'timestamp': FieldValue.serverTimestamp(),
+
+                    // ✅ Added fields below
+                    'requestType': 'Delivery',
+                    'fare':
+                        double.tryParse(deliveryFee) ??
+                        0, // fallback if fee is not numeric
                   };
 
                   try {

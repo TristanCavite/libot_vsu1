@@ -477,6 +477,8 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                     'paymentMethod': _selectedPaymentMethod,
                     'status': 'pending',
                     'timestamp': FieldValue.serverTimestamp(),
+                    'requestType': 'Ride', // ✅ ADDED this
+                    'fare': double.tryParse(fare) ?? 0, // ✅ ADDED this
                   };
 
                   try {
