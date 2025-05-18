@@ -20,6 +20,7 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
   @override
   void initState() {
     super.initState();
+     _cleanupOldCompletedRequests();
     _loadRequests();
   }
 
@@ -95,6 +96,21 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
       });
     }
   }
+
+  void _cleanupOldCompletedRequests() async {
+  final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+
+  final snapshot = await FirebaseFirestore.instance
+      .collection('completed_requests')
+      .where('completedAt', isLessThan: Timestamp.fromDate(twoDaysAgo))
+      .get();
+
+  for (final doc in snapshot.docs) {
+    await doc.reference.delete();
+    debugPrint('🧹 Deleted old completed request: ${doc.id}');
+  }
+}
+
 
   // --- UI Helper Methods for Modals ---
 
