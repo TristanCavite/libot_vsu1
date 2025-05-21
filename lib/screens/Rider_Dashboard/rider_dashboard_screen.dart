@@ -5,6 +5,8 @@ import 'package:libot_vsu1/screens/Rider_Dashboard/rider_activity_screen.dart';
 import 'package:libot_vsu1/screens/Rider_Dashboard/rider_message_screen.dart';
 import 'package:libot_vsu1/screens/setting.dart';
 import 'package:libot_vsu1/screens/Profile/rider_Profile_screen.dart';
+import 'package:libot_vsu1/widgets/osm_map.dart'; // 🗺️ OSM map widget
+import 'package:latlong2/latlong.dart'; // 🌐 For LatLng
 
 class RiderDashboardScreen extends StatefulWidget {
   const RiderDashboardScreen({super.key});
@@ -144,6 +146,10 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                       'name': userData['fullName'] ?? 'Unknown',
                       'pickup': data['pickupLocation'] ?? 'Unknown',
                       'destination': data['destination'] ?? 'Unknown',
+                      'pickupTime': data['pickupTime'] ?? '',
+                      'paymentMethod': data['paymentMethod'] ?? '',
+                      'pickupPin': data['pickupPin'],
+                      'destinationPin': data['destinationPin'],
                       'profileUrl': userData['profileUrl'] ?? '',
                       'avatarColor': Colors.blue,
                     });
@@ -171,65 +177,124 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
     }
   }
 
-  // Sample data for delivery requests - replace with Firestore fetch
-  final deliveryData = [
-    {
-      'id': 'delivery1', // Add an ID for potential updates
-      'name': 'John Doe',
-      'item': 'Book',
-      'destination': 'Library',
-      'profileUrl': '',
-      'avatarColor': Colors.blue,
-    },
-    {
-      'id': 'delivery2',
-      'name': 'Jane Smith',
-      'item': 'Folder',
-      'destination': 'DLABS',
-      'profileUrl': 'https://via.placeholder.com/150', // Example with picture
-      'avatarColor': Colors.orange,
-    },
-  ];
+  void _fetchDeliveryRequest() async {
+    try {
+      final deliverySnapshot =
+          await FirebaseFirestore.instance
+              .collection('delivery_requests')
+              .where('status', isEqualTo: 'pending')
+              .get();
 
-  void _fetchDeliveryRequest() {
-    // Fetching delivery data logic here
-    if (mounted) {
-      setState(() {
-        deliveryRequests = deliveryData; // Using sample data for now
-      });
+      final List<Map<String, dynamic>> fetchedDeliveries = [];
+
+      List<Future<void>> fetches = [];
+
+      for (var doc in deliverySnapshot.docs) {
+        final data = doc.data();
+        final clientId = data['clientId'];
+
+        if (clientId != null) {
+          fetches.add(
+            FirebaseFirestore.instance
+                .collection('users')
+                .doc(clientId)
+                .get()
+                .then((userDoc) {
+                  final userData = userDoc.data();
+                  if (userData != null) {
+                    fetchedDeliveries.add({
+                      'id': doc.id,
+                      'name': userData['fullName'] ?? 'Unknown',
+                      'profileUrl': userData['profileUrl'] ?? '',
+                      'avatarColor': Colors.orange,
+                      'pickup': data['pickupLocation'] ?? 'Unknown',
+                      'destination': data['destination'] ?? 'Unknown',
+                      'pickupTime': data['pickupTime'] ?? '',
+                      'paymentMethod': data['paymentMethod'] ?? '',
+                      'pickupPin': data['pickupPin'],
+                      'destinationPin': data['destinationPin'],
+                      'orders': data['orders'] ?? '',
+                    });
+                  }
+                }),
+          );
+        }
+      }
+
+      await Future.wait(fetches);
+
+      if (mounted) {
+        setState(() {
+          deliveryRequests = fetchedDeliveries;
+        });
+      }
+    } catch (e) {
+      print("Error fetching delivery requests: $e");
     }
   }
 
   // --- Function to handle accepting a request ---
-  void _acceptRequest(String type, Map<String, dynamic> request) {
-    // TODO: Implement the actual logic to update Firestore status, assign rider, etc.
+  void _acceptRequest(String type, Map<String, dynamic> request) async {
+    final rider = FirebaseAuth.instance.currentUser;
+    if (rider == null) return;
 
-    String name = request['name'] ?? 'Someone';
-    String requestId = request['id'];
+    final String requestId = request['id'];
+    final String collection =
+        type == 'passenger' ? 'ride_requests' : 'delivery_requests';
 
-    // Example: Show snackbar feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('You accepted the request from $name.'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    // -- End of example --
+    try {
+      // 1. Fetch the original request data
+      final requestDoc =
+          await FirebaseFirestore.instance
+              .collection(collection)
+              .doc(requestId)
+              .get();
+      if (!requestDoc.exists) return;
 
-    if (mounted) {
-      setState(() {
-        _isShowingConfirmationScreen = false;
-        if (type == 'passenger') {
-          passengerRequests.removeWhere((r) => r['id'] == requestId);
-        } else {
-          deliveryRequests.removeWhere((r) => r['id'] == requestId);
-        }
-        // Reset selection
-        _selectedRequestData = null;
-        _selectedRequestType = null;
+      final requestData = requestDoc.data()!;
 
-        _loadRequestsData();
-      });
+      // 2. Add riderId to the request
+      final updatedData = {
+        ...requestData,
+        'riderId': rider.uid,
+        'status': 'accepted',
+        'acceptedAt': FieldValue.serverTimestamp(),
+      };
+
+      // 3. Store in 'accepted_requests' collection
+      await FirebaseFirestore.instance
+          .collection('accepted_requests')
+          .doc(requestId)
+          .set(updatedData);
+
+      // 4. Delete from original collection
+      await FirebaseFirestore.instance
+          .collection(collection)
+          .doc(requestId)
+          .delete();
+
+      // 5. Refresh UI
+      if (mounted) {
+        setState(() {
+          _isShowingConfirmationScreen = false;
+          if (type == 'passenger') {
+            passengerRequests.removeWhere((r) => r['id'] == requestId);
+          } else {
+            deliveryRequests.removeWhere((r) => r['id'] == requestId);
+          }
+          _selectedRequestData = null;
+          _selectedRequestType = null;
+        });
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Request accepted successfully!')));
+    } catch (e) {
+      print('[ERROR] Accepting request: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to accept request: $e')));
     }
   }
 
@@ -529,7 +594,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
       icon1 = Icons.location_on_outlined;
       icon2 = Icons.flag_outlined;
     } else if (type == 'delivery') {
-      detailLine1 = "Item: ${request['item'] ?? 'Unknown'}";
+      detailLine1 = "Item: ${request['orders'] ?? 'Unknown'}";
       detailLine2 = "Deliver To: ${request['destination'] ?? 'Unknown'}";
       icon1 = Icons.inventory_2_outlined;
       icon2 = Icons.location_on_outlined;
@@ -692,6 +757,80 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
                   ),
 
                   // Add more details as needed
+                  // Pickup time
+                  if (request['pickupTime'] != null) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.access_time,
+                          size: 20,
+                          color: Colors.black54,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Pickup Time: ${request['pickupTime']}',
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // Payment method
+                  if (request['paymentMethod'] != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.payment,
+                          size: 20,
+                          color: Colors.black54,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Payment: ${request['paymentMethod']}',
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // OSM Map Preview
+                  if (request['pickupPin'] != null &&
+                      request['destinationPin'] != null) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Route Preview',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        height: 200,
+                        child: OsmMap(
+                          // 🧭 You’ll need to modify OsmMap to support static pin rendering
+                          initialPickupPin: LatLng(
+                            request['pickupPin']['lat'],
+                            request['pickupPin']['lng'],
+                          ),
+                          initialDestinationPin: LatLng(
+                            request['destinationPin']['lat'],
+                            request['destinationPin']['lng'],
+                          ),
+                          isReadOnly:
+                              true, // Optional: disable tap-to-move if needed
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -814,9 +953,9 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
       final String destination = request['destination'] ?? 'Unknown';
       subtitleText = '$pickup → $destination';
     } else if (type == 'delivery') {
-      final String item = request['item'] ?? 'Item';
+      final String pickup = request['pickup'] ?? 'Unknown';
       final String destination = request['destination'] ?? 'Unknown';
-      subtitleText = '$item to be delivered at $destination';
+      subtitleText = 'Delivery from $pickup to $destination';
     }
 
     return InkWell(

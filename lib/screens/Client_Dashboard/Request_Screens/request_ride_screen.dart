@@ -9,7 +9,6 @@ import 'package:firebase_auth/firebase_auth.dart'; // ✅ Optional: attach rider
 import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/pending_screen.dart'; // ✅ Import pending screen
 import 'package:libot_vsu1/screens/Client_Dashboard/client_dashboard_screen.dart';
 
-
 class RequestRideScreen extends StatefulWidget {
   final String destination;
   final List<Map<String, dynamic>> placesList;
@@ -38,7 +37,8 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
   String fare = '0'; // fare price variable
 
   // 🆕 Holds map pin coordinates from OsmMap
-  LatLng? _pinLocation; // 🧭 NEW: to store final pickup coordinates
+  LatLng? _pickupPin;
+  LatLng? _destinationPin;
 
   @override
   void initState() {
@@ -269,12 +269,17 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
               child: SizedBox(
                 height: 200,
                 child: OsmMap(
-                  onLocationChanged: (LatLng location) {
+                  onPickupChanged: (LatLng pickupLocation) {
                     setState(() {
-                      _pinLocation = location; // ✅ Store pin location from map
+                      _pickupPin = pickupLocation;
                     });
                   },
-                ), // 🧭 Step 3B: inserted map here
+                  onDestinationChanged: (LatLng destinationLocation) {
+                    setState(() {
+                      _destinationPin = destinationLocation;
+                    });
+                  },
+                ),
               ),
             ),
 
@@ -428,59 +433,87 @@ class _RequestRideScreenState extends State<RequestRideScreen> {
                   ),
                 ),
                 onPressed: () async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('User not logged in')),
-    );
-    return;
-  }
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('User not logged in')),
+                    );
+                    return;
+                  }
 
-  final requestData = {
-    'clientId': user.uid,
-    'pickupLocation': _pickupLocationController.text,
-    'destination': _destinationController.text,
-    'pickupTime': _selectedPickupOption == 'Now'
-        ? 'Now'
-        : '${_dateController.text}, ${_timeController.text}',
-    'pin': {
-      'lat': _pinLocation?.latitude,
-      'lng': _pinLocation?.longitude,
-    },
-    'paymentMethod': _selectedPaymentMethod,
-    'status': 'pending',
-    'timestamp': FieldValue.serverTimestamp(),
-  };
+                  // ✅ START: Check for required fields
+                  if (_pickupLocationController.text.trim().isEmpty ||
+                      _destinationController.text.trim().isEmpty ||
+                      _pickupPin == null ||
+                      _destinationPin == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Please set pickup, destination, and map pins.',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  // ✅ END: Check for required fields
 
-  try {
-    final docRef = await FirebaseFirestore.instance
-        .collection('ride_requests')
-        .add(requestData);
+                  final requestData = {
+                    'clientId': user.uid,
+                    'pickupLocation': _pickupLocationController.text,
+                    'destination': _destinationController.text,
+                    'pickupTime':
+                        _selectedPickupOption == 'Now'
+                            ? 'Now'
+                            : '${_dateController.text}, ${_timeController.text}',
+                    'pickupPin': {
+                      'lat': _pickupPin?.latitude,
+                      'lng': _pickupPin?.longitude,
+                    },
+                    'destinationPin': {
+                      'lat': _destinationPin?.latitude,
+                      'lng': _destinationPin?.longitude,
+                    },
+                    'paymentMethod': _selectedPaymentMethod,
+                    'status': 'pending',
+                    'timestamp': FieldValue.serverTimestamp(),
+                    'requestType': 'Ride', // ✅ ADDED this
+                    'fare': double.tryParse(fare) ?? 0, // ✅ ADDED this
+                  };
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .update({'pendingRequestId': docRef.id});
+                  try {
+                    final docRef = await FirebaseFirestore.instance
+                        .collection('ride_requests')
+                        .add(requestData);
 
-    if (!mounted) return;
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .update({'pendingRequestId': docRef.id});
 
-    // ✅ Don't pop, just inject directly
-    final dashboardState = context.findAncestorStateOfType<ClientDashboardScreenState>();
-    if (dashboardState != null) {
-      dashboardState.setState(() {
-        dashboardState.currentContent = PendingScreen(requestId: docRef.id);
-        dashboardState.requestType = 'Pending';
-        dashboardState.showRequestScreen = true;
-      });
-    }
-  } catch (e) {
-    print('[ERROR] $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to send request: $e')),
-    );
-  }
-},
+                    if (!mounted) return;
 
+                    final dashboardState =
+                        context
+                            .findAncestorStateOfType<
+                              ClientDashboardScreenState
+                            >();
+                    if (dashboardState != null) {
+                      dashboardState.setState(() {
+                        dashboardState.currentContent = PendingScreen(
+                          requestId: docRef.id,
+                        );
+                        dashboardState.requestType = 'Pending';
+                        dashboardState.showRequestScreen = true;
+                      });
+                    }
+                  } catch (e) {
+                    print('[ERROR] $e');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to send request: $e')),
+                    );
+                  }
+                },
 
                 child: const Text(
                   'Confirm Ride Request',
