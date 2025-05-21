@@ -20,73 +20,73 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
   @override
   void initState() {
     super.initState();
-     _cleanupOldCompletedRequests();
+    _cleanupOldCompletedRequests();
     _loadRequests();
   }
 
   void _loadRequests() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-  print("👤 Loading requests for: ${user.uid}");
+    print("👤 Loading requests for: ${user.uid}");
 
-  final acceptedSnap = await FirebaseFirestore.instance
-      .collection('accepted_requests')
-      .where('riderId', isEqualTo: user.uid)
-      .get();
+    final acceptedSnap =
+        await FirebaseFirestore.instance
+            .collection('accepted_requests')
+            .where('riderId', isEqualTo: user.uid)
+            .get();
 
-  final accepted = <Map<String, dynamic>>[];
-  final completed = <Map<String, dynamic>>[];
+    final accepted = <Map<String, dynamic>>[];
+    final completed = <Map<String, dynamic>>[];
 
-  for (final doc in acceptedSnap.docs) {
-    final data = doc.data();
-    final clientId = data['clientId'];
-    if (clientId == null) continue;
+    for (final doc in acceptedSnap.docs) {
+      final data = doc.data();
+      final clientId = data['clientId'];
+      if (clientId == null) continue;
 
-    final clientDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(clientId)
-        .get();
+      final clientDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(clientId)
+              .get();
 
-    final enriched = {
-      ...data,
-      'id': doc.id,
-      'name': clientDoc.data()?['fullName'] ?? 'Unknown',
-      'avatar': clientDoc.data()?['profileUrl'] ?? '',
-    };
+      final enriched = {
+        ...data,
+        'id': doc.id,
+        'name': clientDoc.data()?['fullName'] ?? 'Unknown',
+        'avatar': clientDoc.data()?['profileUrl'] ?? '',
+      };
 
-    if ((data['status'] as String?)?.toLowerCase() == 'completed') {
-      completed.add(enriched);
-    } else {
-      accepted.add(enriched);
+      if ((data['status'] as String?)?.toLowerCase() == 'completed') {
+        completed.add(enriched);
+      } else {
+        accepted.add(enriched);
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _acceptedRequests = accepted;
+        _completedRequests = completed;
+      });
     }
   }
 
-  if (mounted) {
-    setState(() {
-      _acceptedRequests = accepted;
-      _completedRequests = completed;
-    });
+  void _cleanupOldCompletedRequests() async {
+    final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+
+    final snapshot =
+        await FirebaseFirestore.instance
+            .collection('accepted_requests')
+            .where('status', isEqualTo: 'Completed')
+            .where('completedAt', isLessThan: Timestamp.fromDate(twoDaysAgo))
+            .get();
+
+    for (final doc in snapshot.docs) {
+      await doc.reference.delete();
+      debugPrint('🧹 Deleted expired completed request: ${doc.id}');
+    }
   }
-}
-
-
- void _cleanupOldCompletedRequests() async {
-  final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
-
-  final snapshot = await FirebaseFirestore.instance
-      .collection('accepted_requests')
-      .where('status', isEqualTo: 'Completed')
-      .where('completedAt', isLessThan: Timestamp.fromDate(twoDaysAgo))
-      .get();
-
-  for (final doc in snapshot.docs) {
-    await doc.reference.delete();
-    debugPrint('🧹 Deleted expired completed request: ${doc.id}');
-  }
-}
-
-
 
   // --- UI Helper Methods for Modals ---
 
@@ -161,15 +161,6 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
                   // OSM Map Preview using pickupPin and destinationPin
                   if (request['pickupPin'] != null &&
                       request['destinationPin'] != null) ...[
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Route Preview',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: SizedBox(
@@ -188,15 +179,6 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
                       ),
                     ),
                   ] else ...[
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Route Preview',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     Container(
                       height: 150,
                       width: double.infinity,
@@ -498,35 +480,35 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
     );
   }
 
-// --- Action Methods ---
-Future<void> _completeRequest(Map<String, dynamic> request) async {
-  try {
-    final id = request['id'];
+  // --- Action Methods ---
+  Future<void> _completeRequest(Map<String, dynamic> request) async {
+    try {
+      final id = request['id'];
 
-    // ✅ Update the request in Firestore to mark as completed
-    await FirebaseFirestore.instance
-        .collection('accepted_requests')
-        .doc(id)
-        .update({
-          'status': 'Completed',
-          'completedAt': FieldValue.serverTimestamp(),
+      // ✅ Update the request in Firestore to mark as completed
+      await FirebaseFirestore.instance
+          .collection('accepted_requests')
+          .doc(id)
+          .update({
+            'status': 'Completed',
+            'completedAt': FieldValue.serverTimestamp(),
+          });
+
+      // ✅ Update local UI: move from accepted to completed
+      if (mounted) {
+        setState(() {
+          _acceptedRequests.removeWhere((r) => r['id'] == id);
+          request['status'] = 'Completed';
+          request['completedAt'] = DateTime.now(); // local fallback
+          _completedRequests.add(request);
         });
+      }
 
-    // ✅ Update local UI: move from accepted to completed
-    if (mounted) {
-      setState(() {
-        _acceptedRequests.removeWhere((r) => r['id'] == id);
-        request['status'] = 'Completed';
-        request['completedAt'] = DateTime.now(); // local fallback
-        _completedRequests.add(request);
-      });
+      Navigator.pop(context);
+    } catch (e) {
+      debugPrint('❌ Failed to mark request as completed: $e');
     }
-
-    Navigator.pop(context);
-  } catch (e) {
-    debugPrint('❌ Failed to mark request as completed: $e');
   }
-}
 
   void _deleteCompletedRequest(Map<String, dynamic> request) {
     setState(() {
