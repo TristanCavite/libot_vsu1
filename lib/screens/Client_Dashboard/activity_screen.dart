@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/pending_screen.dart';
-import 'package:libot_vsu1/screens/Client_Dashboard/client_dashboard_screen.dart';
+
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -354,32 +353,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                           .map(
                             (request) => GestureDetector(
                               onTap: () {
-                                final dashboardState =
-                                    context
-                                        .findAncestorStateOfType<
-                                          ClientDashboardScreenState
-                                        >();
-
-                                if (dashboardState != null) {
-                                  dashboardState.setState(() {
-                                    dashboardState.currentContent =
-                                        PendingScreen(requestId: request['id']);
-                                    dashboardState.requestType =
-                                        'Pending'; // title on top
-                                    dashboardState.showRequestScreen = true;
-                                  });
-                                } else {
-                                  // fallback just in case
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) => PendingScreen(
-                                            requestId: request['id'],
-                                          ),
-                                    ),
-                                  );
-                                }
+                                //dli nlng pending screen
                               },
 
                               child: _buildRequestTile(request, isActive: true),
