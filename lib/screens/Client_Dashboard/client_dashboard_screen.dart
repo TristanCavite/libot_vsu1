@@ -7,15 +7,16 @@ import 'package:libot_vsu1/screens/Client_Dashboard/message_screen.dart';
 import 'package:libot_vsu1/screens/Profile/client_Profile_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/request_delivery_screen.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/Request_Screens/request_ride_screen.dart';
+import 'package:libot_vsu1/screens/setting.dart';
 
 class ClientDashboardScreen extends StatefulWidget {
   const ClientDashboardScreen({super.key});
 
   @override
-  State<ClientDashboardScreen> createState() => _ClientDashboardScreenState();
+  State<ClientDashboardScreen> createState() => ClientDashboardScreenState();
 }
 
-class _ClientDashboardScreenState extends State<ClientDashboardScreen>
+class ClientDashboardScreenState extends State<ClientDashboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String greeting = 'Hello';
@@ -31,6 +32,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
   List<Map<String, dynamic>> availableDrivers = [];
   List<String> savedPlaces = [];
   final TextEditingController destinationController = TextEditingController();
+   List<Map<String, dynamic>> placesList = [];
 
   @override
   void initState() {
@@ -40,6 +42,8 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
     _fetchUserProfile();
     _fetchAvailableDrivers();
     _loadSavedPlaces();
+    _fetchPlaces();
+    _loadPlacesOnce();
   }
 
   void _setGreeting() {
@@ -93,6 +97,21 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
     });
   }
 
+
+ Future<void> _loadPlacesOnce() async {
+  if (placesList.isEmpty) { // 🛡️ Only fetch if empty
+    final querySnapshot = await FirebaseFirestore.instance.collection('places').get();
+    setState(() {
+      placesList = querySnapshot.docs.map((doc) => {
+        'name': doc['name'],
+        'campusCategory': doc['campusCategory'],
+      }).toList();
+    });
+  }
+}
+
+
+
   void _addNewSavedPlace(String place) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || place.trim().isEmpty) return;
@@ -107,8 +126,22 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
     });
   }
 
+    // ✏️ Correct way to fetch name and campusCategory
+  Future<void> _fetchPlaces() async {
+    final query = await FirebaseFirestore.instance.collection('places').get();
+    final List<Map<String, dynamic>> fetchedPlaces = query.docs.map((doc) => {
+      'name': doc['name'],
+      'campusCategory': doc['campusCategory'],
+    }).toList();
+    setState(() {
+      placesList = fetchedPlaces;
+    });
+  }
+
+
   Widget _buildDriverCard(Map<String, dynamic> driver) {
     return Card(
+      color: Colors.grey[100],
       elevation: 1,
       margin: const EdgeInsets.symmetric(vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -226,7 +259,14 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
                       ),
                       const SizedBox(width: 0),
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SettingScreen(),
+                            ),
+                          );
+                        },
                         icon: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
@@ -389,7 +429,7 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
           ),
           const SizedBox(height: 16),
           if (selectedTab == 'Ride')
-            TypeAheadField<String>(
+             TypeAheadField<Map<String, dynamic>>( // 🆕 Map type
               controller: destinationController,
               builder: (context, controller, focusNode) {
                 return TextField(
@@ -398,62 +438,41 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.location_on),
                     hintText: 'Destination',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 );
               },
-              suggestionsCallback: (pattern) {
-                final suggestions = [
-                  'VSU Market',
-                  'Upper Oval',
-                  'Tambaan Farm Cafe',
-                  'Dlabs',
-                  'DCST',
-                  'Upper Utod',
-                  'Lower Utod',
-                  'Lower Oval',
-                  'Gabas',
-                  'Bunga',
-                  'Marcos',
-                  'Patag',
-                  'Pangasugan',
-                  'Baybay proper',
-                  'Kilim',
-                  'San Agustin',
-                  'Candadam',
-                  'Sta. Cruz',
-                ];
-                return suggestions
-                    .where(
-                      (place) =>
-                          place.toLowerCase().contains(pattern.toLowerCase()),
-                    )
-                    .toList();
-              },
-              itemBuilder: (context, String suggestion) {
-                return ListTile(
-                  leading: const Icon(Icons.location_on),
-                  title: Text(suggestion),
-                );
-              },
-              onSelected: (String suggestion) {
-                setState(() {
-                  destinationController.text = suggestion;
-                });
+              suggestionsCallback: (pattern) => placesList.where(
+                (place) => place['name'].toString().toLowerCase().contains(pattern.toLowerCase())
+              ).toList(),
+              itemBuilder: (context, Map<String, dynamic> suggestion) => ListTile(
+                leading: const Icon(Icons.location_on),
+                title: Text(suggestion['name']),
+              ),
+              onSelected: (Map<String, dynamic> suggestion) {
+                destinationController.text = suggestion['name'];
               },
             ),
+            
           const SizedBox(height: 20),
           const Text(
             'Available Drivers Nearby',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           if (availableDrivers.isEmpty)
             const Text('No available riders at the moment')
           else
-            Column(children: availableDrivers.map(_buildDriverCard).toList()),
+            // Column(children: availableDrivers.map(_buildDriverCard).toList()),
+            SizedBox(
+              height: 200,
+              child: ListView.builder(
+                itemCount: availableDrivers.length,
+                itemBuilder: (context, index) {
+                  return _buildDriverCard(availableDrivers[index]);
+                },
+              ),
+            ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -502,23 +521,42 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           if (savedPlaces.isEmpty)
             const Text('No saved places yet')
           else
-            Column(
-              children:
-                  savedPlaces
-                      .map(
-                        (place) => ListTile(
-                          leading: const Icon(Icons.location_on),
-                          title: Text(place),
-                          onTap: () {
-                            destinationController.text = place;
-                          },
-                        ),
-                      )
-                      .toList(),
+            SizedBox(
+              height: 150,
+              child: ListView.builder(
+                itemCount: savedPlaces.length,
+                itemBuilder: (context, index) {
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      title: Text(savedPlaces[index]),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () async {
+                          final uid = FirebaseAuth.instance.currentUser?.uid;
+                          if (uid == null) {
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(uid)
+                                .update({
+                                  'savedPlaces': FieldValue.arrayRemove([
+                                    savedPlaces[index],
+                                  ]),
+                                });
+                          }
+                          setState(() {
+                            savedPlaces.removeAt(index);
+                          });
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           const SizedBox(height: 16),
 
@@ -528,10 +566,10 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen>
               // Set the content based on selected tab
               setState(() {
                 if (selectedTab == 'Ride') {
-                  currentContent = const RequestRideScreen();
+                  currentContent = RequestRideScreen(destination: destinationController.text, placesList: placesList,);
                   requestType = 'Ride';
                 } else {
-                  currentContent = const RequestDeliveryScreen();
+                  currentContent = const RequestDeliveryScreen(); 
                   requestType = 'Delivery';
                 }
                 showRequestScreen = true;
