@@ -160,14 +160,29 @@ class _PendingScreenState extends State<PendingScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_requestStatus == 'accepted' && _riderInfo != null) {
-      return _buildAcceptedConfirmation();
-    }
+ @override
+Widget build(BuildContext context) {
+  final Widget screen = _requestStatus == 'accepted' && _riderInfo != null
+      ? _buildAcceptedConfirmation()
+      : _buildWaitingOrTimeoutScreen();
 
-    return _buildWaitingOrTimeoutScreen();
-  }
+  // 🔍 Check if we're embedded inside another screen like ClientDashboard
+  final bool isEmbedded = Scaffold.maybeOf(context) != null;
+
+  return isEmbedded
+      ? screen
+      : Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            title: const Text("Pending Details"),
+            backgroundColor: const Color(0xFF00843D),
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          body: screen,
+        );
+}
+
 
   // ⌛ UI for waiting or timeout state
   Widget _buildWaitingOrTimeoutScreen() {

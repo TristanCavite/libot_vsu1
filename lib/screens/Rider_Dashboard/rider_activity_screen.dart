@@ -25,91 +25,67 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
   }
 
   void _loadRequests() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
 
-    print("👤 Loading requests for: ${user.uid}");
+  print("👤 Loading requests for: ${user.uid}");
 
-    final acceptedSnap =
-        await FirebaseFirestore.instance
-            .collection('accepted_requests')
-            .where('riderId', isEqualTo: user.uid)
-            .get();
+  final acceptedSnap = await FirebaseFirestore.instance
+      .collection('accepted_requests')
+      .where('riderId', isEqualTo: user.uid)
+      .get();
 
-    final accepted = await Future.wait(
-      acceptedSnap.docs.map((doc) async {
-        final data = doc.data();
-        final clientId = data['clientId'];
+  final accepted = <Map<String, dynamic>>[];
+  final completed = <Map<String, dynamic>>[];
 
-        if (clientId == null) return null;
+  for (final doc in acceptedSnap.docs) {
+    final data = doc.data();
+    final clientId = data['clientId'];
+    if (clientId == null) continue;
 
-        final clientDoc =
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(clientId)
-                .get();
+    final clientDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(clientId)
+        .get();
 
-        return {
-          ...data,
-          'id': doc.id,
-          'name': clientDoc.data()?['fullName'] ?? 'Unknown',
-          'avatar': clientDoc.data()?['profileUrl'] ?? '',
-          'status': 'Accepted',
-        };
-      }),
-    );
+    final enriched = {
+      ...data,
+      'id': doc.id,
+      'name': clientDoc.data()?['fullName'] ?? 'Unknown',
+      'avatar': clientDoc.data()?['profileUrl'] ?? '',
+    };
 
-    final completedSnap =
-        await FirebaseFirestore.instance
-            .collection('completed_requests')
-            .where('riderId', isEqualTo: user.uid)
-            .get();
-
-    final completed = await Future.wait(
-      completedSnap.docs.map((doc) async {
-        final data = doc.data();
-        final clientId = data['clientId'];
-
-        if (clientId == null) return null;
-
-        final clientDoc =
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(clientId)
-                .get();
-
-        return {
-          ...data,
-          'id': doc.id,
-          'name': clientDoc.data()?['fullName'] ?? 'Unknown',
-          'avatar': clientDoc.data()?['profileUrl'] ?? '',
-          'status': 'Completed',
-        };
-      }),
-    );
-
-    if (mounted) {
-      setState(() {
-        _acceptedRequests = accepted.whereType<Map<String, dynamic>>().toList();
-        _completedRequests =
-            completed.whereType<Map<String, dynamic>>().toList();
-      });
+    if ((data['status'] as String?)?.toLowerCase() == 'completed') {
+      completed.add(enriched);
+    } else {
+      accepted.add(enriched);
     }
   }
 
-  void _cleanupOldCompletedRequests() async {
+  if (mounted) {
+    setState(() {
+      _acceptedRequests = accepted;
+      _completedRequests = completed;
+    });
+  }
+}
+
+
+ void _cleanupOldCompletedRequests() async {
   final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
 
   final snapshot = await FirebaseFirestore.instance
-      .collection('completed_requests')
+      .collection('accepted_requests')
+      .where('status', isEqualTo: 'Completed')
       .where('completedAt', isLessThan: Timestamp.fromDate(twoDaysAgo))
       .get();
 
   for (final doc in snapshot.docs) {
     await doc.reference.delete();
-    debugPrint('🧹 Deleted old completed request: ${doc.id}');
+    debugPrint('🧹 Deleted expired completed request: ${doc.id}');
   }
 }
+
 
 
   // --- UI Helper Methods for Modals ---
@@ -527,33 +503,28 @@ Future<void> _completeRequest(Map<String, dynamic> request) async {
   try {
     final id = request['id'];
 
-    // Add to completed_requests with TTL field
-    await FirebaseFirestore.instance
-        .collection('completed_requests')
-        .doc(id)
-        .set({
-      ...request,
-      'completedAt': FieldValue.serverTimestamp(), // ✅ Add this for TTL auto-deletion
-    });
-
-    // Delete from accepted_requests
+    // ✅ Update the request in Firestore to mark as completed
     await FirebaseFirestore.instance
         .collection('accepted_requests')
         .doc(id)
-        .delete();
+        .update({
+          'status': 'Completed',
+          'completedAt': FieldValue.serverTimestamp(),
+        });
 
+    // ✅ Update local UI: move from accepted to completed
     if (mounted) {
       setState(() {
         _acceptedRequests.removeWhere((r) => r['id'] == id);
         request['status'] = 'Completed';
-        request['completedAt'] = DateTime.now(); // Optional: update local cache
+        request['completedAt'] = DateTime.now(); // local fallback
         _completedRequests.add(request);
       });
     }
 
     Navigator.pop(context);
   } catch (e) {
-    debugPrint('❌ Failed to complete request: $e');
+    debugPrint('❌ Failed to mark request as completed: $e');
   }
 }
 
