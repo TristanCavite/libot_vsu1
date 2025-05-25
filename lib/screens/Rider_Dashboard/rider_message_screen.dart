@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:libot_vsu1/models/user_profile.dart';
+import 'package:libot_vsu1/screens/chat_screen.dart';
+import 'package:libot_vsu1/utils/channel_utils.dart';
 
 class RiderMessageScreen extends StatefulWidget {
   const RiderMessageScreen({super.key});
@@ -9,71 +14,66 @@ class RiderMessageScreen extends StatefulWidget {
 
 class _RiderMessageScreenState extends State<RiderMessageScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<Map<String, dynamic>> _allMessages = [
-    {
-      'name': 'David Bombal',
-      'message': 'Hey, are you available to give me a ride?',
-      'time': '12:41 AM',
-      'online': true,
-      'avatar': 'assets/images/default_profile.png',
-      'isRead': true,
-      'unreadCount': 0,
-    },
-    {
-      'name': 'Sam Garcia',
-      'message': 'Can you deliver the document I have right now?',
-      'time': '12:08 PM',
-      'online': false,
-      'avatar': 'assets/images/default_profile.png',
-      'isRead': true,
-      'unreadCount': 0,
-    },
-    {
-      'name': 'David Kim',
-      'message': 'Hey, are you available to give me a ride?',
-      'time': '12:41 AM',
-      'online': true,
-      'avatar': 'assets/images/default_profile.png',
-      'isRead': false,
-      'unreadCount': 2,
-    },
-    {
-      'name': 'Serge Garcia',
-      'message': 'Can you deliver the document I have right now?',
-      'time': '12:08 PM',
-      'online': false,
-      'avatar': 'assets/images/default_profile.png',
-      'isRead': false,
-      'unreadCount': 5,
-    },
-    {
-      'name': 'Jhon Doe',
-      'message': 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-      'time': '2:08 PM',
-      'online': false,
-      'avatar': 'assets/images/default_profile.png',
-      'isRead': false,
-      'unreadCount': 1,
-    },
-  ];
-
-  List<Map<String, dynamic>> _filteredMessages = [];
+  List<UserProfile> _clients = [];
+  List<UserProfile> _filteredClients = [];
 
   @override
   void initState() {
     super.initState();
-    _filteredMessages = _allMessages;
+    _fetchClients();
 
     _searchController.addListener(() {
       final query = _searchController.text.toLowerCase();
       setState(() {
-        _filteredMessages =
-            _allMessages.where((msg) {
-              final name = msg['name'].toString().toLowerCase();
-              return name.contains(query);
-            }).toList();
+        _filteredClients = _clients
+            .where((client) => client.name.toLowerCase().contains(query))
+            .toList();
       });
     });
+  }
+
+  Future<void> _fetchClients() async {
+    final riderId = FirebaseAuth.instance.currentUser?.uid;
+    if (riderId == null) return;
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'Client') // ✅ Ensure field match
+          .get();
+
+      final clients = snapshot.docs.map((doc) {
+        return UserProfile.fromMap(doc.id, doc.data());
+      }).toList();
+
+      setState(() {
+        _clients = clients;
+        _filteredClients = clients;
+      });
+    } catch (e) {
+      debugPrint("❌ Error fetching clients: $e");
+    }
+  }
+
+  void _openChat(UserProfile client) {
+    final riderId = FirebaseAuth.instance.currentUser?.uid;
+    if (riderId == null) return;
+
+    // ✅ Consistent channel naming: always clientId_riderId
+    final channelName = generateChatChannel(client.id, riderId);
+
+
+    // ✅ Send correct receiverId to ChatScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          channelName: channelName,
+          receiverId: client.id,
+          displayName: client.name,
+        ),
+      ),
+    );
   }
 
   @override
@@ -85,10 +85,10 @@ class _RiderMessageScreenState extends State<RiderMessageScreen> {
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-            child: Row(
+            child: const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Messages',
                   style: TextStyle(
                     fontFamily: 'Roboto',
@@ -96,15 +96,6 @@ class _RiderMessageScreenState extends State<RiderMessageScreen> {
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.add_circle_outline,
-                    color: Colors.black,
-                  ),
-                  onPressed: () {
-                    // Add message logic here
-                  },
                 ),
               ],
             ),
@@ -119,7 +110,7 @@ class _RiderMessageScreenState extends State<RiderMessageScreen> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'Search messages...',
+                  hintText: 'Search clients...',
                   prefixIcon: const Icon(Icons.search),
                   filled: true,
                   fillColor: Colors.grey[200],
@@ -133,97 +124,28 @@ class _RiderMessageScreenState extends State<RiderMessageScreen> {
             ),
           ),
 
-          // Filtered Message List
+          // List of Clients
           Expanded(
-            child: Container(
-              color: Colors.white,
-              child: ListView.builder(
-                itemCount: _filteredMessages.length,
-                itemBuilder: (context, index) {
-                  final msg = _filteredMessages[index];
-                  final bool isRead = msg['isRead'] ?? false;
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: isRead ? Colors.white : const Color(0xFFF1F1F1),
-                      borderRadius: isRead ? null : BorderRadius.circular(12),
-                    ),
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 2,
-                      ),
-                      leading: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundImage: AssetImage(msg['avatar']),
-                          ),
-                          if (msg['online'])
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.green,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      title: Text(
-                        msg['name'],
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        msg['message'],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            msg['time'],
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          if (msg['unreadCount'] != null &&
-                              msg['unreadCount'] > 0)
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundColor: const Color(0xFF00843D),
-                              child: Text(
-                                '${msg['unreadCount']}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      onTap: () {},
-                    ),
-                  );
-                },
-              ),
-            ),
+            child: _filteredClients.isEmpty
+                ? const Center(child: Text('No clients found.'))
+                : ListView.builder(
+                    itemCount: _filteredClients.length,
+                    itemBuilder: (context, index) {
+                      final client = _filteredClients[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          radius: 24,
+                          backgroundImage: client.avatar.isNotEmpty
+                              ? NetworkImage(client.avatar)
+                              : const AssetImage('assets/images/default_profile.png')
+                                  as ImageProvider,
+                        ),
+                        title: Text(client.name),
+                        subtitle: const Text('Tap to chat...'),
+                        onTap: () => _openChat(client), // ✅ Opens real-time chat
+                      );
+                    },
+                  ),
           ),
         ],
       ),

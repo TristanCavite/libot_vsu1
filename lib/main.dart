@@ -6,6 +6,7 @@ import 'utils/lifecycle_watcher.dart'; // 👈 import it
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:libot_vsu1/services/ably_service.dart';
 
 //import 'screens/temp_add_place_screen.dart';
 
@@ -22,6 +23,8 @@ void main() async {
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVob2tiemZrc3J6bnloZmJkd2p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3MzE3MTYsImV4cCI6MjA2MDMwNzcxNn0.2YaIQLq7O4V0PsDgoRyLn8Yt7xyuGBMUO8TkTJ1fIrQ',
   );
+
+  await AblyService.initialize('MDBIsw.cI0DgA:kpaYPJXITjJd7GbiI7S4xuhINEqKQzkJHP4NQJE7pYA');
 
    
   // ✅ Request notification permission (Android 13+)
