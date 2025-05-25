@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:libot_vsu1/screens/Client_Dashboard/client_dashboard_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:libot_vsu1/main.dart' show flutterLocalNotificationsPlugin;
+import 'package:libot_vsu1/screens/chat_screen.dart';
+import 'package:libot_vsu1/utils/channel_utils.dart';
 
 class PendingScreen extends StatefulWidget {
   final String requestId;
@@ -106,6 +108,31 @@ class _PendingScreenState extends State<PendingScreen> {
         });
   }
 
+  void _openChatWithRider() {
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null || _riderInfo == null) return;
+
+  final clientId = currentUser.uid;
+  final riderId = _riderInfo!['uid'];
+  final riderName = _riderInfo!['fullName'] ?? 'Rider';
+
+  // Generate channelName using helper
+  final channelName = generateChatChannel(clientId, riderId);
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ChatScreen(
+        channelName: channelName,
+        receiverId: riderId,
+        displayName: riderName,
+      ),
+    ),
+  );
+}
+
+
+
   // ❌ Cancel request & clean up user state
   Future<void> _cancelRequest() async {
     try {
@@ -137,7 +164,6 @@ class _PendingScreenState extends State<PendingScreen> {
           icon: 'ic_stat_logo',
           importance: Importance.max,
           priority: Priority.high,
-          
         );
 
     const NotificationDetails platformDetails = NotificationDetails(
@@ -160,18 +186,19 @@ class _PendingScreenState extends State<PendingScreen> {
     super.dispose();
   }
 
- @override
-Widget build(BuildContext context) {
-  final Widget screen = _requestStatus == 'accepted' && _riderInfo != null
-      ? _buildAcceptedConfirmation()
-      : _buildWaitingOrTimeoutScreen();
+  @override
+  Widget build(BuildContext context) {
+    final Widget screen =
+        _requestStatus == 'accepted' && _riderInfo != null
+            ? _buildAcceptedConfirmation()
+            : _buildWaitingOrTimeoutScreen();
 
-  // 🔍 Check if we're embedded inside another screen like ClientDashboard
-  final bool isEmbedded = Scaffold.maybeOf(context) != null;
+    // 🔍 Check if we're embedded inside another screen like ClientDashboard
+    final bool isEmbedded = Scaffold.maybeOf(context) != null;
 
-  return isEmbedded
-      ? screen
-      : Scaffold(
+    return isEmbedded
+        ? screen
+        : Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
             title: const Text("Pending Details"),
@@ -181,8 +208,7 @@ Widget build(BuildContext context) {
           ),
           body: screen,
         );
-}
-
+  }
 
   // ⌛ UI for waiting or timeout state
   Widget _buildWaitingOrTimeoutScreen() {
@@ -423,7 +449,10 @@ Widget build(BuildContext context) {
                       ),
                       title: Text(_riderInfo!['fullName'] ?? 'Rider'),
                       subtitle: Text(_riderInfo!['vehicle'] ?? 'On a ride'),
-                      trailing: const Icon(Icons.chat_bubble_outline),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        onPressed: () => _openChatWithRider(),
+                      ),
                     ),
                   ],
                 ),

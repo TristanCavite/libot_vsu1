@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:libot_vsu1/widgets/osm_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:libot_vsu1/screens/chat_screen.dart'; // make sure this is imported
+import 'package:libot_vsu1/utils/channel_utils.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -730,17 +732,27 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
-  void _chatWithRider(Map<String, dynamic> request) {
-    final riderId = request['riderId'];
-    final riderName = request['riderName'];
-    // Navigate to chat screen (not implemented)
-    // Example: Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(riderId: riderId, riderName: riderName)));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Chat with $riderName (ID: $riderId) - Not implemented.'),
+ void _chatWithRider(Map<String, dynamic> request) {
+  final riderId = request['riderId'];
+  final riderName = request['riderName'] ?? 'Rider';
+
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null || riderId == null) return;
+
+  final clientId = currentUser.uid;
+  final channelName = generateChatChannel(clientId, riderId);
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ChatScreen(
+        channelName: channelName,
+        receiverId: riderId,
+        displayName: riderName,
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

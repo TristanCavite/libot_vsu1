@@ -46,12 +46,20 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen>
 
     // Add listener to reset confirmation screen state if user navigates away from Home tab
     _tabController.addListener(() {
+      if (_tabController.indexIsChanging) return;
+
+      // 🔄 Reset confirmation when leaving Home tab
       if (_tabController.index != 0 && _isShowingConfirmationScreen) {
         setState(() {
           _isShowingConfirmationScreen = false;
           _selectedRequestData = null;
           _selectedRequestType = null;
         });
+      }
+
+      // ✅ Fetch fresh requests every time Home tab is selected
+      if (_tabController.index == 0) {
+        _loadRequestsData();
       }
     });
   }

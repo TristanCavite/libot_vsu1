@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:libot_vsu1/widgets/osm_map.dart'; // ✅ Add this import
 import 'package:latlong2/latlong.dart'; // ✅ Required for LatLng
+import 'package:libot_vsu1/screens/chat_screen.dart';
+import 'package:libot_vsu1/utils/channel_utils.dart';
 
 class RiderActivityScreen extends StatefulWidget {
   const RiderActivityScreen({super.key});
@@ -310,7 +312,8 @@ class _RiderActivityScreenState extends State<RiderActivityScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: () {
-                      _chat(); // Chat functionality
+                      Navigator.pop(context);
+                      _chat(request); // Chat functionality
                     },
                   ),
 
@@ -535,13 +538,27 @@ Future<void> _completeRequest(Map<String, dynamic> request) async {
     Navigator.pop(context);
   }
 
-  void _chat() {
-    // Placeholder for chat functionality
-    // Edit this method to implement the chat feature.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Chat feature is not implemented yet.')),
-    );
-  }
+  void _chat(Map<String, dynamic> request) {
+  final clientId = request['clientId'];
+  final clientName = request['name'] ?? 'Client';
+
+  final riderId = FirebaseAuth.instance.currentUser?.uid;
+  if (clientId == null || riderId == null) return;
+
+  final channelName = generateChatChannel(clientId, riderId);
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ChatScreen(
+        channelName: channelName,
+        receiverId: clientId,
+        displayName: clientName,
+      ),
+    ),
+  );
+}
+
 
   // --- Build Method ---
   @override
