@@ -7,11 +7,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mime/mime.dart';
 
 class ClientProfileScreen extends StatefulWidget {
-  const ClientProfileScreen({super.key});
+  final String? userId;
+  final bool viewOnly;
+
+  const ClientProfileScreen({
+    super.key,
+    this.userId,
+    this.viewOnly = false,
+  });
 
   @override
   State<ClientProfileScreen> createState() => _ClientProfileScreenState();
 }
+
 
 class _ClientProfileScreenState extends State<ClientProfileScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -32,25 +40,26 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     _loadProfile();
   }
 
-  Future<void> _loadProfile() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final doc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    final data = doc.data();
-    if (data != null) {
-      setState(() {
-        fullName = data['fullName'] ?? '';
-        email = data['email'] ?? '';
-        profileUrl = data['profileUrl'] ?? '';
-        studentIdUrl = data['studentIdUrl'] ?? '';
-        _mobileController.text = data['mobile'] ?? '';
-        _addressController.text = data['address'] ?? '';
-        _studentIdController.text = data['studentId'] ?? '';
-        _courseYearController.text = data['courseYear'] ?? '';
-      });
-    }
+ Future<void> _loadProfile() async {
+  final uid = widget.userId ?? FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return;
+
+  final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+  final data = doc.data();
+  if (data != null) {
+    setState(() {
+      fullName = data['fullName'] ?? '';
+      email = data['email'] ?? '';
+      profileUrl = data['profileUrl'] ?? '';
+      studentIdUrl = data['studentIdUrl'] ?? '';
+      _mobileController.text = data['mobile'] ?? '';
+      _addressController.text = data['address'] ?? '';
+      _studentIdController.text = data['studentId'] ?? '';
+      _courseYearController.text = data['courseYear'] ?? '';
+    });
   }
+}
+
 
   Future<String?> _uploadFile(String folderName) async {
     final picker = ImagePicker();
@@ -95,6 +104,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    if (widget.viewOnly) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
@@ -110,12 +120,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Profile updated')));
-  }
-
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
@@ -138,7 +142,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                         ),
                         child: Row(
                           children: [
-                            if (!isEditing) // <-- ADD THIS CONDITION
+                            if (!widget.viewOnly && !isEditing) // <-- ADD THIS CONDITION
                               IconButton(
                                 icon: const Icon(
                                   Icons.arrow_back,
@@ -147,7 +151,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                 onPressed: () => Navigator.pop(context),
                               ),
                             const Spacer(),
-                            if (!isEditing)
+                            if (!widget.viewOnly && !isEditing)
                               TextButton(
                                 onPressed: () {
                                   setState(() => isEditing = true);
@@ -220,7 +224,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
 
                                     TextFormField(
                                       controller: _studentIdController,
-                                      readOnly: !isEditing,
+                                      readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -242,7 +246,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
 
                                     TextFormField(
                                       controller: _mobileController,
-                                      readOnly: !isEditing,
+                                      readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -264,7 +268,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
 
                                     TextFormField(
                                       controller: _courseYearController,
-                                      readOnly: !isEditing,
+                                      readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -286,7 +290,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
 
                                     TextFormField(
                                       controller: _addressController,
-                                      readOnly: !isEditing,
+                                      readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -309,9 +313,10 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                     const SizedBox(height: 10),
                                     studentIdUrl.isEmpty
                                         ? ElevatedButton(
-                                          onPressed:
-                                              isEditing
-                                                  ? () async {
+                                          onPressed: widget.viewOnly || !isEditing 
+                                          ? null
+                                              
+                                                  : () async {
                                                     final url =
                                                         await _uploadFile(
                                                           'student_ids',
@@ -334,8 +339,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                                             studentIdUrl = url,
                                                       );
                                                     }
-                                                  }
-                                                  : null,
+                                                  },
+                                                
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.grey[300],
                                             padding: const EdgeInsets.symmetric(
@@ -387,7 +392,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                                       fit: BoxFit.cover,
                                                     ),
                                                   ),
-                                                  if (isEditing)
+                                                  if (!widget.viewOnly && isEditing) // 🔧 EDITED
+
                                                     Positioned(
                                                       bottom: 6,
                                                       right: 6,
@@ -443,7 +449,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                         ),
 
                                     const SizedBox(height: 10),
-                                    if (isEditing)
+                                    if (!widget.viewOnly && isEditing) // 🔧 EDITED
+
                                       ElevatedButton(
                                         onPressed: () {
                                           if (_formKey.currentState!
@@ -473,25 +480,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           ),
                                         ),
                                       ),
-
-                                    // Logout button
-                                    const SizedBox(height: 10),
-                                    OutlinedButton(
-                                      onPressed: _logout,
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 50,
-                                          vertical: 14,
-                                        ),
-                                        side: const BorderSide(
-                                          color: Colors.red,
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Logout',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -516,7 +504,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                             )
                                             : null,
                                   ),
-                                  if (isEditing)
+                                  if (!widget.viewOnly && isEditing) // 🔧 EDITED
+
                                     Positioned(
                                       right: 0,
                                       bottom: 0,

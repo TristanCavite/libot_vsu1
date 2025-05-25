@@ -5,17 +5,19 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:libot_vsu1/models/chat_message.dart';
 import 'package:libot_vsu1/services/ably_service.dart';
+import 'package:libot_vsu1/screens/Profile/client_Profile_screen.dart';
+import 'package:libot_vsu1/screens/Profile/rider_Profile_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String channelName; // Format: clientId_riderId
-  final String receiverId;  // Opposite user's UID
+  final String receiverId; // Opposite user's UID
   final String displayName;
 
   const ChatScreen({
     super.key,
     required this.channelName,
     required this.receiverId,
-     required this.displayName,
+    required this.displayName,
   });
 
   @override
@@ -27,101 +29,162 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   late ably.RealtimeChannel _channel;
   final _currentUser = FirebaseAuth.instance.currentUser;
+  String receiverProfileUrl = '';
+  String receiverRole = '';
 
+  @override
+  void initState() {
+    super.initState();
 
-@override
-void initState() {
-  super.initState();
+    _channel = AblyService.getChannel(widget.channelName);
 
-  _channel = AblyService.getChannel(widget.channelName);
+    // ✅ Load past messages from Firestore
+    _loadReceiverProfile();
+    _loadPreviousMessages();
 
-  // ✅ Load past messages from Firestore
-  _loadPreviousMessages();
+    // ✅ Listen for new real-time messages from Ably
+    _channel.subscribe(name: 'chat').listen((ably.Message message) {
+      debugPrint("📥 Raw message: ${message.data}");
 
-  // ✅ Listen for new real-time messages from Ably
-  _channel.subscribe(name: 'chat').listen((ably.Message message) {
-    debugPrint("📥 Raw message: ${message.data}");
+      try {
+        final raw = message.data;
+        final data = Map<String, dynamic>.from(raw as Map); // Cast safely
+        final chatMessage = ChatMessage.fromMap(data);
 
+        // Avoid duplicates if sender is current user and it's already in local list
+        final exists = _messages.any(
+          (m) =>
+              m.text == chatMessage.text &&
+              m.senderId == chatMessage.senderId &&
+              m.timestamp == chatMessage.timestamp,
+        );
+
+        if (!exists) {
+          setState(() => _messages.insert(0, chatMessage));
+          debugPrint("✅ Message added to UI");
+        } else {
+          debugPrint("⚠️ Duplicate ignored");
+        }
+      } catch (e) {
+        debugPrint("❌ Failed to parse message: $e");
+      }
+    });
+  }
+
+  Future<void> _loadReceiverProfile() async {
     try {
-      final raw = message.data;
-      final data = Map<String, dynamic>.from(raw as Map); // Cast safely
-      final chatMessage = ChatMessage.fromMap(data);
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(widget.receiverId)
+              .get();
 
-      // Avoid duplicates if sender is current user and it's already in local list
-      final exists = _messages.any((m) =>
-          m.text == chatMessage.text &&
-          m.senderId == chatMessage.senderId &&
-          m.timestamp == chatMessage.timestamp);
-
-      if (!exists) {
-        setState(() => _messages.insert(0, chatMessage));
-        debugPrint("✅ Message added to UI");
-      } else {
-        debugPrint("⚠️ Duplicate ignored");
+      final data = doc.data();
+      if (data != null && mounted) {
+        setState(() {
+          receiverProfileUrl = data['profileUrl'] ?? '';
+          receiverRole = data['role'] ?? '';
+        });
       }
     } catch (e) {
-      debugPrint("❌ Failed to parse message: $e");
+      debugPrint("❌ Failed to load receiver profile: $e");
     }
-  });
-}
+  }
 
+  Future<void> _loadPreviousMessages() async {
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance
+              .collection('chat_channels')
+              .doc(widget.channelName)
+              .collection('messages')
+              .orderBy('timestamp', descending: true)
+              .get();
 
-Future<void> _loadPreviousMessages() async {
-  try {
-    final snapshot = await FirebaseFirestore.instance
+      final messages =
+          snapshot.docs.map((doc) {
+            return ChatMessage.fromMap(doc.data());
+          }).toList();
+
+      setState(() {
+        _messages.addAll(messages);
+      });
+
+      debugPrint("✅ Loaded ${messages.length} messages from Firestore");
+    } catch (e) {
+      debugPrint("❌ Failed to load messages: $e");
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final messageText = _controller.text.trim();
+    if (messageText.isEmpty || _currentUser == null) return;
+
+    final msg = ChatMessage(
+      senderId: _currentUser.uid,
+      receiverId: widget.receiverId,
+      text: messageText,
+      timestamp: DateTime.now(),
+    );
+
+    // ✅ Store message in Firestore
+    await FirebaseFirestore.instance
         .collection('chat_channels')
         .doc(widget.channelName)
         .collection('messages')
-        .orderBy('timestamp', descending: true)
-        .get();
+        .add(msg.toMap());
 
-    final messages = snapshot.docs.map((doc) {
-      return ChatMessage.fromMap(doc.data());
-    }).toList();
+    // ✅ Send to Ably for real-time display
+    _channel.publish(name: 'chat', data: msg.toMap());
 
-    setState(() {
-      _messages.addAll(messages);
-    });
-
-    debugPrint("✅ Loaded ${messages.length} messages from Firestore");
-  } catch (e) {
-    debugPrint("❌ Failed to load messages: $e");
+    _controller.clear();
   }
-}
 
-
-
-Future<void> _sendMessage() async {
-  final messageText = _controller.text.trim();
-  if (messageText.isEmpty || _currentUser == null) return;
-
-  final msg = ChatMessage(
-    senderId: _currentUser.uid,
-    receiverId: widget.receiverId,
-    text: messageText,
-    timestamp: DateTime.now(),
-  );
-
-  // ✅ Store message in Firestore
-  await FirebaseFirestore.instance
-      .collection('chat_channels')
-      .doc(widget.channelName)
-      .collection('messages')
-      .add(msg.toMap());
-
-  // ✅ Send to Ably for real-time display
-  _channel.publish(name: 'chat', data: msg.toMap());
-
-  _controller.clear();
-}
-
-  @override
+   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.displayName),
         backgroundColor: const Color(0xFF00843D),
         foregroundColor: Colors.white,
+        title: Row(
+          children: [
+            // ⬇️ NEW: Wrap profile image in GestureDetector
+            GestureDetector(
+              onTap: () {
+                if (receiverRole == 'Rider') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RiderProfileScreen(
+                        viewOnly: true,
+                        userId: widget.receiverId,
+                      ),
+                    ),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ClientProfileScreen(
+                        viewOnly: true,
+                        userId: widget.receiverId,
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: CircleAvatar(
+                radius: 16,
+                backgroundImage: receiverProfileUrl.isNotEmpty
+                    ? NetworkImage(receiverProfileUrl)
+                    : const AssetImage('assets/images/default_profile.png')
+                        as ImageProvider,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(widget.displayName),
+          ],
+        ),
       ),
       body: Column(
         children: [
@@ -134,9 +197,8 @@ Future<void> _sendMessage() async {
                 final isMe = msg.senderId == _currentUser?.uid;
 
                 return Align(
-                  alignment: isMe
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
+                  alignment:
+                      isMe ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.symmetric(
                       vertical: 4,

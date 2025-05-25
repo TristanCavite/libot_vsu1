@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/welcome_screen.dart';
 import 'utils/lifecycle_watcher.dart'; // 👈 import it
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:libot_vsu1/services/ably_service.dart';
+import 'package:libot_vsu1/screens/auth_gate.dart';
 
 //import 'screens/temp_add_place_screen.dart';
 
@@ -60,7 +60,8 @@ class LibotVSUApp extends StatelessWidget {
       title: 'LibotVSU',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(fontFamily: 'Roboto', useMaterial3: true),
-      home: const WelcomeScreen(),
+      home: const AuthGate(),
+
     );
   }
 }

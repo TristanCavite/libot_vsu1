@@ -7,7 +7,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mime/mime.dart';
 
 class RiderProfileScreen extends StatefulWidget {
-  const RiderProfileScreen({super.key});
+  final String? userId; // ✅ ADDED: optional userId to view another rider
+  final bool viewOnly;  // ✅ ADDED: disables editing if true
+
+  const RiderProfileScreen({
+    super.key,
+    this.userId,
+    this.viewOnly = false,
+  });
 
   @override
   State<RiderProfileScreen> createState() => _RiderProfileScreenState();
@@ -35,7 +42,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    
+  final uid = widget.userId ?? FirebaseAuth.instance.currentUser?.uid; // ✅ EDITED
     if (uid == null) return;
     final doc =
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
@@ -94,6 +102,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    if (widget.viewOnly) return; // ✅ ADDED
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
@@ -132,7 +141,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         ),
                         child: Row(
                           children: [
-                            if (!isEditing) // <-- ADD THIS CONDITION
+                            if (!widget.viewOnly && !isEditing) // <-- ADD THIS CONDITION
                               IconButton(
                                 icon: const Icon(
                                   Icons.arrow_back,
@@ -141,7 +150,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                 onPressed: () => Navigator.pop(context),
                               ),
                             const Spacer(),
-                            if (!isEditing)
+                            if (!widget.viewOnly && !isEditing)
                               TextButton(
                                 onPressed:
                                     () => setState(() => isEditing = true),
@@ -213,7 +222,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
 
                                     TextFormField(
                                       controller: _studentIdController,
-                                      readOnly: !isEditing,
+                                       readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -233,7 +242,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     const SizedBox(height: 12),
                                     TextFormField(
                                       controller: _mobileController,
-                                      readOnly: !isEditing,
+                                       readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -253,7 +262,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     const SizedBox(height: 12),
                                     TextFormField(
                                       controller: _courseYearController,
-                                      readOnly: !isEditing,
+                                       readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -273,7 +282,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     const SizedBox(height: 12),
                                     TextFormField(
                                       controller: _addressController,
-                                      readOnly: !isEditing,
+                                       readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -293,7 +302,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     const SizedBox(height: 12),
                                     TextFormField(
                                       controller: _vehicleController,
-                                      readOnly: !isEditing,
+                                       readOnly: widget.viewOnly || !isEditing,
                                       style: const TextStyle(
                                         color: Colors.black,
                                       ),
@@ -328,7 +337,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     ),
 
                                     const SizedBox(height: 20),
-                                    if (isEditing)
+                                    if (!widget.viewOnly && isEditing)
                                       ElevatedButton(
                                         onPressed: () {
                                           if (_formKey.currentState!
@@ -382,7 +391,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                             )
                                             : null,
                                   ),
-                                  if (isEditing)
+                                  if (!widget.viewOnly && isEditing)
                                     Positioned(
                                       right: 0,
                                       bottom: 0,
@@ -437,9 +446,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
   Widget _buildUploadSection(String label, String imageUrl, String folderName) {
     return imageUrl.isEmpty
         ? ElevatedButton(
-          onPressed:
-              isEditing
-                  ? () async {
+          onPressed: widget.viewOnly || !isEditing // ✅ ADDED
+                ? null
+                  : () async {
                     final url = await _uploadFile(folderName);
                     if (url != null) {
                       final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -460,8 +469,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         }
                       });
                     }
-                  }
-                  : null,
+                  },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.grey[300],
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -501,7 +509,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                  if (isEditing)
+                   if (!widget.viewOnly && isEditing)
                     Positioned(
                       bottom: 6,
                       right: 6,
