@@ -32,7 +32,7 @@ class ClientDashboardScreenState extends State<ClientDashboardScreen>
   List<Map<String, dynamic>> availableDrivers = [];
   List<String> savedPlaces = [];
   final TextEditingController destinationController = TextEditingController();
-   List<Map<String, dynamic>> placesList = [];
+  List<Map<String, dynamic>> placesList = [];
 
   @override
   void initState() {
@@ -97,20 +97,24 @@ class ClientDashboardScreenState extends State<ClientDashboardScreen>
     });
   }
 
-
- Future<void> _loadPlacesOnce() async {
-  if (placesList.isEmpty) { // 🛡️ Only fetch if empty
-    final querySnapshot = await FirebaseFirestore.instance.collection('places').get();
-    setState(() {
-      placesList = querySnapshot.docs.map((doc) => {
-        'name': doc['name'],
-        'campusCategory': doc['campusCategory'],
-      }).toList();
-    });
+  Future<void> _loadPlacesOnce() async {
+    if (placesList.isEmpty) {
+      // 🛡️ Only fetch if empty
+      final querySnapshot =
+          await FirebaseFirestore.instance.collection('places').get();
+      setState(() {
+        placesList =
+            querySnapshot.docs
+                .map(
+                  (doc) => {
+                    'name': doc['name'],
+                    'campusCategory': doc['campusCategory'],
+                  },
+                )
+                .toList();
+      });
+    }
   }
-}
-
-
 
   void _addNewSavedPlace(String place) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -126,18 +130,22 @@ class ClientDashboardScreenState extends State<ClientDashboardScreen>
     });
   }
 
-    // ✏️ Correct way to fetch name and campusCategory
+  // ✏️ Correct way to fetch name and campusCategory
   Future<void> _fetchPlaces() async {
     final query = await FirebaseFirestore.instance.collection('places').get();
-    final List<Map<String, dynamic>> fetchedPlaces = query.docs.map((doc) => {
-      'name': doc['name'],
-      'campusCategory': doc['campusCategory'],
-    }).toList();
+    final List<Map<String, dynamic>> fetchedPlaces =
+        query.docs
+            .map(
+              (doc) => {
+                'name': doc['name'],
+                'campusCategory': doc['campusCategory'],
+              },
+            )
+            .toList();
     setState(() {
       placesList = fetchedPlaces;
     });
   }
-
 
   Widget _buildDriverCard(Map<String, dynamic> driver) {
     return Card(
@@ -166,173 +174,192 @@ class ClientDashboardScreenState extends State<ClientDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF00843D),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ClientProfileScreen(),
-                        ),
-                      );
-                    },
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundColor: Colors.white,
-                      backgroundImage:
-                          profileUrl.isNotEmpty
-                              ? NetworkImage(profileUrl)
-                              : null,
-                      child:
-                          profileUrl.isEmpty
-                              ? const Icon(
-                                Icons.person,
-                                color: Color(0xFF00843D),
-                              )
-                              : null,
-                    ),
-                  ),
+    return WillPopScope(
+      onWillPop: () async {
+        if (showRequestScreen) {
+          setState(() {
+            showRequestScreen = false;
+          });
+          return false; // prevent leaving
+        }
 
-                  const SizedBox(width: 12),
-                  // Wrap the name section in Flexible to avoid overflow
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        if (_tabController.index != 0) {
+          setState(() {
+            _tabController.index =
+                0; // switch to Home tab instead of exiting app
+          });
+          return false;
+        }
+
+        return true; // allow default back behavior (exit app) only on Home tab
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF00843D),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ClientProfileScreen(),
+                          ),
+                        );
+                      },
+                      child: CircleAvatar(
+                        radius: 24,
+                        backgroundColor: Colors.white,
+                        backgroundImage:
+                            profileUrl.isNotEmpty
+                                ? NetworkImage(profileUrl)
+                                : null,
+                        child:
+                            profileUrl.isEmpty
+                                ? const Icon(
+                                  Icons.person,
+                                  color: Color(0xFF00843D),
+                                )
+                                : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            greeting,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          RichText(
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '$fullName ',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const TextSpan(
+                                  text: '(Client)',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 10,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          greeting,
-                          style: const TextStyle(color: Colors.white70),
+                        IconButton(
+                          onPressed: () {},
+                          icon: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.10),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.notifications,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
                         ),
-                        RichText(
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                          text: TextSpan(
+                        IconButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SettingScreen(),
+                              ),
+                            );
+                          },
+                          icon: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.10),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.settings,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // NAVBAR
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        TabBar(
+                          controller: _tabController,
+                          labelColor: const Color(0xFF00843D),
+                          unselectedLabelColor: Colors.grey,
+                          indicator: const BoxDecoration(),
+                          tabs: const [
+                            Tab(icon: Icon(Icons.home), text: 'Home'),
+                            Tab(icon: Icon(Icons.show_chart), text: 'Activity'),
+                            Tab(icon: Icon(Icons.message), text: 'Messages'),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
                             children: [
-                              TextSpan(
-                                text: '$fullName ',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const TextSpan(
-                                text: '(Client)',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 10,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
+                              _buildHomeTabContent(), // 👇 switches between tabs & embedded screen
+                              const ActivityScreen(),
+                              const MessageScreen(),
                             ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 5),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: () {},
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.10),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.notifications,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 0),
-                      IconButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SettingScreen(),
-                            ),
-                          );
-                        },
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.10),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.settings,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // NAVBAR
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      TabBar(
-                        controller: _tabController,
-                        labelColor: const Color(0xFF00843D),
-                        unselectedLabelColor: Colors.grey,
-                        indicator: const BoxDecoration(),
-                        tabs: const [
-                          Tab(icon: Icon(Icons.home), text: 'Home'),
-                          Tab(icon: Icon(Icons.show_chart), text: 'Activity'),
-                          Tab(icon: Icon(Icons.message), text: 'Messages'),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            // First tab content with conditional display
-                            _buildHomeTabContent(),
-                            const ActivityScreen(),
-                            const MessageScreen(),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
-            ), // End of Navbar
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -429,7 +456,8 @@ class ClientDashboardScreenState extends State<ClientDashboardScreen>
           ),
           const SizedBox(height: 16),
           if (selectedTab == 'Ride')
-             TypeAheadField<Map<String, dynamic>>( // 🆕 Map type
+            TypeAheadField<Map<String, dynamic>>(
+              // 🆕 Map type
               controller: destinationController,
               builder: (context, controller, focusNode) {
                 return TextField(
@@ -438,22 +466,32 @@ class ClientDashboardScreenState extends State<ClientDashboardScreen>
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.location_on),
                     hintText: 'Destination',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 );
               },
-              suggestionsCallback: (pattern) => placesList.where(
-                (place) => place['name'].toString().toLowerCase().contains(pattern.toLowerCase())
-              ).toList(),
-              itemBuilder: (context, Map<String, dynamic> suggestion) => ListTile(
-                leading: const Icon(Icons.location_on),
-                title: Text(suggestion['name']),
-              ),
+              suggestionsCallback:
+                  (pattern) =>
+                      placesList
+                          .where(
+                            (place) => place['name']
+                                .toString()
+                                .toLowerCase()
+                                .contains(pattern.toLowerCase()),
+                          )
+                          .toList(),
+              itemBuilder:
+                  (context, Map<String, dynamic> suggestion) => ListTile(
+                    leading: const Icon(Icons.location_on),
+                    title: Text(suggestion['name']),
+                  ),
               onSelected: (Map<String, dynamic> suggestion) {
                 destinationController.text = suggestion['name'];
               },
             ),
-            
+
           const SizedBox(height: 20),
           const Text(
             'Available Drivers Nearby',
@@ -566,10 +604,13 @@ class ClientDashboardScreenState extends State<ClientDashboardScreen>
               // Set the content based on selected tab
               setState(() {
                 if (selectedTab == 'Ride') {
-                  currentContent = RequestRideScreen(destination: destinationController.text, placesList: placesList,);
+                  currentContent = RequestRideScreen(
+                    destination: destinationController.text,
+                    placesList: placesList,
+                  );
                   requestType = 'Ride';
                 } else {
-                  currentContent = const RequestDeliveryScreen(); 
+                  currentContent = const RequestDeliveryScreen();
                   requestType = 'Delivery';
                 }
                 showRequestScreen = true;
