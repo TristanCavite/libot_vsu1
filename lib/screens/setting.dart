@@ -1,10 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class SettingScreen extends StatelessWidget {
+// Rename your model to avoid conflict with Firebase User
+class AppUser {
+  final String name;
+  final String email;
+  final String phone;
+  final String role;
+  final String imageUrl;
+
+  AppUser({
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.role,
+    required this.imageUrl,
+  });
+}
+
+class SettingScreen extends StatefulWidget {
   const SettingScreen({super.key});
 
   @override
+  State<SettingScreen> createState() => _SettingScreenState();
+}
+
+class _SettingScreenState extends State<SettingScreen> {
+  User? user; // Firebase user
+  AppUser? appUser; // Your custom user model
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUser();
+  }
+
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  Future<void> _fetchUser() async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(firebaseUser.uid)
+            .get();
+    final data = doc.data();
+    if (data != null) {
+      setState(() {
+        appUser = AppUser(
+          name: data['fullName'] ?? '',
+          email: data['email'] ?? '',
+          phone: data['mobile'] ?? '',
+          role: data['role'] ?? '',
+          imageUrl: data['profileUrl'] ?? '', // <-- Use empty string fallback
+        );
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (appUser == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return Scaffold(
       backgroundColor: const Color(0xFF00843D), // Background color
       body: Column(
@@ -22,7 +86,7 @@ class SettingScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16), // Add padding inside the box
               decoration: BoxDecoration(
                 color: Colors.white, // White background
-                borderRadius: BorderRadius.only(
+                borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(32),
                   topRight: Radius.circular(32),
                 ), // Rounded corners
@@ -34,7 +98,6 @@ class SettingScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   _buildProfileDetails(),
                   const SizedBox(height: 16),
-
                   _buildAboutButton(),
                   _buildMainButtons(context),
                 ],
@@ -55,7 +118,7 @@ class SettingScreen extends StatelessWidget {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Color(0x1A00843D),
+              color: const Color(0x1A00843D),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -91,9 +154,9 @@ class SettingScreen extends StatelessWidget {
           children: [
             _buildProfileHeader(),
             const SizedBox(height: 16),
-            _buildContactInfo(Icons.email, 'johndoe@example.com'),
+            _buildContactInfo(Icons.email, appUser!.email),
             const SizedBox(height: 8),
-            _buildContactInfo(Icons.phone, '09248782378'),
+            _buildContactInfo(Icons.phone, appUser!.phone),
           ],
         ),
       ),
@@ -121,37 +184,45 @@ class SettingScreen extends StatelessWidget {
         Row(
           children: [
             ClipOval(
-              child: Image.network(
-                'https://i.pravatar.cc/300', // Replace with your image URL
-                width: 80,
-                height: 80,
-                fit: BoxFit.cover,
-              ),
+              child:
+                  (appUser!.imageUrl.isNotEmpty)
+                      ? Image.network(
+                        appUser!.imageUrl,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                      )
+                      : Container(
+                        width: 80,
+                        height: 80,
+                        color: Colors.grey[300],
+                        child: const Icon(
+                          Icons.person,
+                          size: 48,
+                          color: Colors.grey,
+                        ),
+                      ),
             ),
             const SizedBox(width: 16), // Space between image and text
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'John Doe',
-                  style: TextStyle(
+                  appUser!.name,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                     color: Colors.black,
                   ),
                 ),
-                SizedBox(height: 2), // Space between name and role
+                const SizedBox(height: 2), // Space between name and role
                 Text(
-                  'Rider',
-                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                  appUser!.role,
+                  style: const TextStyle(fontSize: 16, color: Colors.black54),
                 ),
               ],
             ),
           ],
-        ),
-        IconButton(
-          onPressed: () {}, // Add edit functionality here
-          icon: const Icon(Icons.mode_edit, color: Colors.black54, size: 26),
         ),
       ],
     );
@@ -266,8 +337,7 @@ class SettingScreen extends StatelessWidget {
               confirmButtonText: "Logout",
               confirmButtonColor: Colors.black,
               onConfirm: () {
-                // Perform logout logic here
-                Navigator.pop(context); // Close dialog
+                _logout();
               },
             );
           },
@@ -291,11 +361,8 @@ class SettingScreen extends StatelessWidget {
 
   Widget _buildMainButtons(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16.0,
-      ), // 20% of screen height
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       alignment: Alignment.bottomCenter,
-      // 20% of screen height// 20% of screen height
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

@@ -112,12 +112,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     ).showSnackBar(const SnackBar(content: Text('Profile updated')));
   }
 
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    Navigator.of(context).popUntil((route) => route.isFirst);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -473,25 +467,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                                           ),
                                         ),
                                       ),
-
-                                    // Logout button
-                                    const SizedBox(height: 10),
-                                    OutlinedButton(
-                                      onPressed: _logout,
-                                      style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 50,
-                                          vertical: 14,
-                                        ),
-                                        side: const BorderSide(
-                                          color: Colors.red,
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Logout',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
