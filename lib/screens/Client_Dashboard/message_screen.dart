@@ -32,15 +32,39 @@ class MessageScreenState extends State<MessageScreen> {
     });
   }
 
-  Future<void> _loadRiders() async {
+ Future<void> _loadRiders() async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) return;
+
     final query = await FirebaseFirestore.instance
         .collection('users')
         .where('role', isEqualTo: 'Rider')
         .get();
 
-    final riders = query.docs.map((doc) {
-      return UserProfile.fromMap(doc.id, doc.data());
-    }).toList();
+    List<UserProfile> riders = [];
+
+    for (final doc in query.docs) {
+      var rider = UserProfile.fromMap(doc.id, doc.data());
+
+      final channelName = generateChatChannel(currentUserId, rider.id);
+
+      // 🔽 NEW: fetch the last message
+      final msgSnapshot = await FirebaseFirestore.instance
+          .collection('chat_channels')
+          .doc(channelName)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (msgSnapshot.docs.isNotEmpty) {
+        final messageData = msgSnapshot.docs.first.data();
+        // 🔽 Add lastMessage to new UserProfile instance
+        rider = rider.copyWith(lastMessage: messageData['text']);
+      }
+
+      riders.add(rider);
+    }
 
     setState(() {
       _allRiders = riders;
@@ -156,7 +180,12 @@ class MessageScreenState extends State<MessageScreen> {
                           ],
                         ),
                         title: Text(rider.name),
-                        subtitle: const Text('Tap to chat...'),
+                        subtitle: Text(
+                          rider.lastMessage ?? 'Tap to chat...',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
                         onTap: () => _openChat(rider), // ✅ Navigates to ChatScreen
                       );
                     },

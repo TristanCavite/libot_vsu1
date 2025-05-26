@@ -32,19 +32,42 @@ class _RiderMessageScreenState extends State<RiderMessageScreen> {
     });
   }
 
-  Future<void> _fetchClients() async {
+ Future<void> _fetchClients() async {
     final riderId = FirebaseAuth.instance.currentUser?.uid;
     if (riderId == null) return;
 
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .where('role', isEqualTo: 'Client') // ✅ Ensure field match
+          .where('role', isEqualTo: 'Client') // 🟩 only Clients
           .get();
 
-      final clients = snapshot.docs.map((doc) {
-        return UserProfile.fromMap(doc.id, doc.data());
-      }).toList();
+      List<UserProfile> clients = [];
+
+      for (final doc in snapshot.docs) {
+        final client = UserProfile.fromMap(doc.id, doc.data());
+
+        final channelName = generateChatChannel(client.id, riderId);
+
+        // 🟩 Fetch latest message per client
+        final msgSnapshot = await FirebaseFirestore.instance
+            .collection('chat_channels')
+            .doc(channelName)
+            .collection('messages')
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
+
+        if (msgSnapshot.docs.isNotEmpty) {
+          final messageData = msgSnapshot.docs.first.data();
+          final updatedClient = client.copyWith(
+            lastMessage: messageData['text'] ?? '',
+          );
+          clients.add(updatedClient); // ✅ append updated
+        } else {
+          clients.add(client); // ❌ no message, just add raw profile
+        }
+      }
 
       setState(() {
         _clients = clients;
@@ -54,6 +77,7 @@ class _RiderMessageScreenState extends State<RiderMessageScreen> {
       debugPrint("❌ Error fetching clients: $e");
     }
   }
+
 
   void _openChat(UserProfile client) {
     final riderId = FirebaseAuth.instance.currentUser?.uid;
@@ -141,7 +165,12 @@ class _RiderMessageScreenState extends State<RiderMessageScreen> {
                                   as ImageProvider,
                         ),
                         title: Text(client.name),
-                        subtitle: const Text('Tap to chat...'),
+                        subtitle: Text(
+                          client.lastMessage ?? 'Tap to chat...', // 🟩 updated preview
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14),
+                        ),
                         onTap: () => _openChat(client), // ✅ Opens real-time chat
                       );
                     },
